@@ -24,7 +24,10 @@ interface InventoryBrowserProps {
  *    an "Extract now" prompt.
  *  - Anything else → render the tree / list / detail.
  */
-export function InventoryBrowser({ onExtract, isExtracting }: InventoryBrowserProps) {
+export function InventoryBrowser({
+  onExtract,
+  isExtracting,
+}: InventoryBrowserProps) {
   const selectedAreaHref = useAppStore((s) => s.selectedAreaHref);
   const selectedDeviceHref = useAppStore((s) => s.selectedDeviceHref);
 
@@ -68,7 +71,11 @@ export function InventoryBrowser({ onExtract, isExtracting }: InventoryBrowserPr
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-12 text-center">
         <div className="flex size-12 items-center justify-center rounded-2xl bg-muted">
-          {is404 ? <RefreshCw className="size-5" /> : <AlertCircle className="size-5 text-destructive" />}
+          {is404 ? (
+            <RefreshCw className="size-5" />
+          ) : (
+            <AlertCircle className="size-5 text-destructive" />
+          )}
         </div>
         <h2 className="text-lg font-semibold">
           {is404 ? "No snapshot yet" : "Couldn't load inventory"}
@@ -103,12 +110,16 @@ export function InventoryBrowser({ onExtract, isExtracting }: InventoryBrowserPr
     : inv.devices;
   const selectedDevice = selectedDeviceHref
     ? (inv.devices.find((d) => d.href === selectedDeviceHref) ??
-       (inv.processor.href === selectedDeviceHref ? inv.processor : null))
+      (inv.processor.href === selectedDeviceHref ? inv.processor : null))
     : null;
 
   return (
     <div className="grid h-full grid-cols-[18rem_1fr_24rem] divide-x divide-border">
-      <AreaTree areas={inv.areas} areasByHref={areasByHref} devicesByArea={devicesByArea} />
+      <AreaTree
+        areas={inv.areas}
+        areasByHref={areasByHref}
+        devicesByArea={devicesByArea}
+      />
       <DeviceList
         devices={visibleDevices}
         areasByHref={areasByHref}

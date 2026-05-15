@@ -50,8 +50,8 @@ export function ProfilePickerDialog({
         <DialogHeader>
           <DialogTitle>Open existing profile</DialogTitle>
           <DialogDescription>
-            Pick the processor profile you want to browse. The active profile
-            is what the inventory and export endpoints will operate on.
+            Pick the processor profile you want to browse. The active profile is
+            what the inventory and export endpoints will operate on.
           </DialogDescription>
         </DialogHeader>
 
@@ -61,7 +61,9 @@ export function ProfilePickerDialog({
             Loading profiles…
           </div>
         ) : profiles.isError ? (
-          <p className="py-6 text-sm text-destructive">Failed to load profiles.</p>
+          <p className="py-6 text-sm text-destructive">
+            Failed to load profiles.
+          </p>
         ) : profiles.data && profiles.data.length === 0 ? (
           <p className="py-6 text-sm text-muted-foreground">
             No profiles yet. Pair a processor first.

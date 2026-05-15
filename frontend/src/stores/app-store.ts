@@ -28,7 +28,8 @@ export const useAppStore = create<AppState>()(
       setTheme: (theme) => set({ theme }),
 
       selectedAreaHref: null,
-      setSelectedAreaHref: (href) => set({ selectedAreaHref: href, selectedDeviceHref: null }),
+      setSelectedAreaHref: (href) =>
+        set({ selectedAreaHref: href, selectedDeviceHref: null }),
 
       selectedDeviceHref: null,
       setSelectedDeviceHref: (href) => set({ selectedDeviceHref: href }),

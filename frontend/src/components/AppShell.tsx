@@ -35,7 +35,9 @@ export function AppShell({ left, center, right, children }: AppShellProps) {
           <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <span className="text-[11px] font-bold">RA3</span>
           </div>
-          <span className="text-sm font-semibold tracking-tight">{t("app.title")}</span>
+          <span className="text-sm font-semibold tracking-tight">
+            {t("app.title")}
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <BackendStatus />

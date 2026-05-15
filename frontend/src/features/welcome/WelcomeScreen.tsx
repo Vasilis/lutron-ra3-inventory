@@ -1,6 +1,12 @@
 import { Plug, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { t } from "@/i18n";
 
 interface WelcomeScreenProps {
@@ -14,7 +20,11 @@ interface WelcomeScreenProps {
  * snapshot exists for the active profile). The visual anchor when an
  * integrator first opens the app.
  */
-export function WelcomeScreen({ onPair, onOpenExisting, hasExistingProfiles }: WelcomeScreenProps) {
+export function WelcomeScreen({
+  onPair,
+  onOpenExisting,
+  hasExistingProfiles,
+}: WelcomeScreenProps) {
   return (
     <div className="flex min-h-full items-center justify-center px-6 py-12">
       <Card className="w-full max-w-xl">

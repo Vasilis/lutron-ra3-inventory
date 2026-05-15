@@ -2,7 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { WelcomeScreen } from "@/features/welcome/WelcomeScreen";
 import { t } from "@/i18n";
 import { ApiError, api } from "@/lib/api";
@@ -38,7 +44,8 @@ export function App() {
 
   if (profilesQuery.isError) {
     const authFailed =
-      profilesQuery.error instanceof ApiError && profilesQuery.error.status === 401;
+      profilesQuery.error instanceof ApiError &&
+      profilesQuery.error.status === 401;
 
     return (
       <AppShell>
@@ -96,7 +103,9 @@ function StartupState({
             {body}
           </CardDescription>
         </CardHeader>
-        {action && <CardContent className="flex justify-center">{action}</CardContent>}
+        {action && (
+          <CardContent className="flex justify-center">{action}</CardContent>
+        )}
       </Card>
     </div>
   );

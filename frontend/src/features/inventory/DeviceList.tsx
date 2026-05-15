@@ -50,7 +50,12 @@ export function DeviceList({
           <span className="text-xs text-muted-foreground">
             Snapshot {new Date(extractedAt).toLocaleString()}
           </span>
-          <Button size="sm" variant="outline" onClick={onExtract} disabled={isExtracting}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onExtract}
+            disabled={isExtracting}
+          >
             {isExtracting ? (
               <>
                 <Loader2 className="size-3.5 animate-spin" />

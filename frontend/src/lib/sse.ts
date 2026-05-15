@@ -54,7 +54,9 @@ export function subscribeSse<T>({
   // Attach the session token to the URL.
   const sep = url.includes("?") ? "&" : "?";
   const token = getSessionToken();
-  const withToken = token ? `${url}${sep}token=${encodeURIComponent(token)}` : url;
+  const withToken = token
+    ? `${url}${sep}token=${encodeURIComponent(token)}`
+    : url;
 
   const es = new EventSource(withToken);
 

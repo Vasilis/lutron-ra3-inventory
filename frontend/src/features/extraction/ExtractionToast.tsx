@@ -114,7 +114,11 @@ export function ExtractionToast({
       <div
         className={cn(
           "overflow-hidden rounded-xl border bg-card shadow-2xl shadow-black/40",
-          error ? "border-destructive/40" : success ? "border-emerald-500/40" : "border-border",
+          error
+            ? "border-destructive/40"
+            : success
+              ? "border-emerald-500/40"
+              : "border-border",
         )}
       >
         <div className="p-4">
@@ -133,7 +137,9 @@ export function ExtractionToast({
                 <AlertCircle className="size-4" />
                 Extraction failed
               </div>
-              <div className="text-xs leading-snug text-muted-foreground">{error}</div>
+              <div className="text-xs leading-snug text-muted-foreground">
+                {error}
+              </div>
             </>
           )}
           {success && (
@@ -149,7 +155,9 @@ export function ExtractionToast({
           <div className="h-1 bg-muted">
             <div
               className="h-full bg-primary transition-all"
-              style={{ width: `${Math.max(2, Math.round(phase.progress * 100))}%` }}
+              style={{
+                width: `${Math.max(2, Math.round(phase.progress * 100))}%`,
+              }}
             />
           </div>
         )}

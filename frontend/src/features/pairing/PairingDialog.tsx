@@ -42,7 +42,11 @@ type Status =
  *   success → close, invalidate /profiles, fire onPaired
  *   error / timeout → surface the message; user can retry
  */
-export function PairingDialog({ open, onOpenChange, onPaired }: PairingDialogProps) {
+export function PairingDialog({
+  open,
+  onOpenChange,
+  onPaired,
+}: PairingDialogProps) {
   const qc = useQueryClient();
   const [host, setHost] = useState("192.168.1.184");
   const [name, setName] = useState("Home");
@@ -77,7 +81,11 @@ export function PairingDialog({ open, onOpenChange, onPaired }: PairingDialogPro
           else if (event.phase === "discovering")
             setStatus({ kind: "discovering", detail: event.detail });
           else if (event.phase === "success" && event.serial) {
-            setStatus({ kind: "success", serial: event.serial, name: event.name });
+            setStatus({
+              kind: "success",
+              serial: event.serial,
+              name: event.name,
+            });
             subscriptionRef.current?.close();
             subscriptionRef.current = null;
             qc.invalidateQueries({ queryKey: ["profiles"] });
@@ -111,7 +119,9 @@ export function PairingDialog({ open, onOpenChange, onPaired }: PairingDialogPro
   };
 
   const inProgress =
-    status.kind === "starting" || status.kind === "ready" || status.kind === "discovering";
+    status.kind === "starting" ||
+    status.kind === "ready" ||
+    status.kind === "discovering";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -122,8 +132,8 @@ export function PairingDialog({ open, onOpenChange, onPaired }: PairingDialogPro
             {t("welcome.pair")}
           </DialogTitle>
           <DialogDescription>
-            Connect to your RadioRA 3 processor. You'll be prompted to press
-            the small pairing button on the processor during this flow.
+            Connect to your RadioRA 3 processor. You'll be prompted to press the
+            small pairing button on the processor during this flow.
           </DialogDescription>
         </DialogHeader>
 
@@ -162,7 +172,9 @@ export function PairingDialog({ open, onOpenChange, onPaired }: PairingDialogPro
 
         <DialogFooter>
           {status.kind === "success" ? (
-            <Button onClick={() => onOpenChange(false)}>{t("common.close")}</Button>
+            <Button onClick={() => onOpenChange(false)}>
+              {t("common.close")}
+            </Button>
           ) : (
             <>
               <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -195,7 +207,11 @@ export function PairingDialog({ open, onOpenChange, onPaired }: PairingDialogPro
 
 function ProgressView({ status }: { status: Status }) {
   if (status.kind === "starting") {
-    return <InfoLine icon={<Loader2 className="size-4 animate-spin" />}>Reaching the processor…</InfoLine>;
+    return (
+      <InfoLine icon={<Loader2 className="size-4 animate-spin" />}>
+        Reaching the processor…
+      </InfoLine>
+    );
   }
   if (status.kind === "ready") {
     return (
@@ -241,9 +257,17 @@ function ErrorBanner({ message }: { message: string }) {
   );
 }
 
-function InfoLine({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+function InfoLine({
+  icon,
+  children,
+}: {
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div className={cn("flex items-center gap-2 text-sm text-muted-foreground")}>
+    <div
+      className={cn("flex items-center gap-2 text-sm text-muted-foreground")}
+    >
       {icon}
       {children}
     </div>

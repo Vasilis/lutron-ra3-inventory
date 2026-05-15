@@ -32,9 +32,9 @@ export function DeviceDetail({
 
   const Icon = deviceCategoryIcon(device.DeviceType);
   const zonesByHref = new Map(zones.map((z) => [z.href, z]));
-  const localZones = device.LocalZones.map((r) => zonesByHref.get(r.href)).filter(
-    (z): z is Zone => Boolean(z),
-  );
+  const localZones = device.LocalZones.map((r) =>
+    zonesByHref.get(r.href),
+  ).filter((z): z is Zone => Boolean(z));
   const buttonGroups = buttonGroupExpansions[device.href];
 
   return (
@@ -45,7 +45,9 @@ export function DeviceDetail({
             <Icon className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-semibold">{device.Name ?? device.DeviceType}</h2>
+            <h2 className="truncate text-lg font-semibold">
+              {device.Name ?? device.DeviceType}
+            </h2>
             <p className="truncate text-xs text-muted-foreground">
               {device.DeviceType}
               {device.ModelNumber ? ` · ${device.ModelNumber}` : ""}
@@ -55,8 +57,14 @@ export function DeviceDetail({
 
         <DetailGrid
           rows={[
-            ["Area", areaPath(device.AssociatedArea?.href ?? null, areasByHref)],
-            ["Serial", device.SerialNumber == null ? "—" : String(device.SerialNumber)],
+            [
+              "Area",
+              areaPath(device.AssociatedArea?.href ?? null, areasByHref),
+            ],
+            [
+              "Serial",
+              device.SerialNumber == null ? "—" : String(device.SerialNumber),
+            ],
             ["Firmware", firmwareDisplay(device.FirmwareImage) ?? "—"],
             ["Addressed", device.AddressedState ?? "—"],
             ["href", device.href],

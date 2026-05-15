@@ -80,7 +80,10 @@ const SWITCH_TYPES = [
   "DivaSmartSwitch",
 ] as const;
 
-const FAN_TYPES = ["CasetaFanSpeedController", "MaestroFanSpeedController"] as const;
+const FAN_TYPES = [
+  "CasetaFanSpeedController",
+  "MaestroFanSpeedController",
+] as const;
 
 const SENSOR_TYPES = [
   "RPSOccupancySensor",
@@ -88,17 +91,27 @@ const SENSOR_TYPES = [
   "RPSWallMountedOccupancySensor",
 ] as const;
 
-const LAMP_TYPES = ["KetraD3", "SpectrumTune", "WhiteTune", "ColorTune", "Lumaris"] as const;
+const LAMP_TYPES = [
+  "KetraD3",
+  "SpectrumTune",
+  "WhiteTune",
+  "ColorTune",
+  "Lumaris",
+] as const;
 
 export function deviceCategoryIcon(deviceType: string): LucideIcon {
-  if (deviceType === "RadioRa3Processor" || deviceType === "JanusProcRA3") return Cpu;
-  if ((KEYPAD_TYPES as readonly string[]).includes(deviceType)) return ToggleLeft;
+  if (deviceType === "RadioRa3Processor" || deviceType === "JanusProcRA3")
+    return Cpu;
+  if ((KEYPAD_TYPES as readonly string[]).includes(deviceType))
+    return ToggleLeft;
   if ((PICO_TYPES as readonly string[]).includes(deviceType)) return Radio;
-  if ((DIMMER_TYPES as readonly string[]).includes(deviceType)) return Lightbulb;
+  if ((DIMMER_TYPES as readonly string[]).includes(deviceType))
+    return Lightbulb;
   if ((SWITCH_TYPES as readonly string[]).includes(deviceType)) return Power;
   if ((FAN_TYPES as readonly string[]).includes(deviceType)) return Fan;
   if ((SHADE_TYPES as readonly string[]).includes(deviceType)) return Layers;
-  if ((SENSOR_TYPES as readonly string[]).includes(deviceType)) return Thermometer;
+  if ((SENSOR_TYPES as readonly string[]).includes(deviceType))
+    return Thermometer;
   if ((LAMP_TYPES as readonly string[]).includes(deviceType)) return Sun;
   if (deviceType === "KeypadLED") return Wifi;
   if (deviceType.endsWith("Plug")) return Plug;

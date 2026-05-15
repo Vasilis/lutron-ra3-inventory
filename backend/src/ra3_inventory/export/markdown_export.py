@@ -219,15 +219,23 @@ def _emit_remaining_sections(
     if "areas" in selected:
         lines.append("## Areas")
         lines.append("")
-        lines.append("| href | Name | Parent | Full path |")
-        lines.append("|---|---|---|---|")
         sorted_areas = sorted(inv.areas, key=lambda a: area_path(a.href, areas_by_href))
-        for a in sorted_areas:
-            phref = a.Parent.href if a.Parent is not None else None
-            lines.append(
-                f"| `{a.href}` | {a.Name or '?'} | `{phref or 'root'}` | "
-                f"{area_path(a.href, areas_by_href)} |"
-            )
+        if verbose:
+            lines.append("| href | Name | Parent | Full path |")
+            lines.append("|---|---|---|---|")
+            for a in sorted_areas:
+                phref = a.Parent.href if a.Parent is not None else None
+                lines.append(
+                    f"| `{a.href}` | {a.Name or '?'} | `{phref or 'root'}` | "
+                    f"{area_path(a.href, areas_by_href)} |"
+                )
+        else:
+            lines.append("| Area | Full path |")
+            lines.append("|---|---|")
+            for a in sorted_areas:
+                lines.append(
+                    f"| {a.Name or '?'} | {area_path(a.href, areas_by_href)} |"
+                )
         lines.append("")
 
     if "devices" in selected:

@@ -121,7 +121,7 @@ class JsApi:
                 webview.SAVE_DIALOG,
                 save_filename=filename,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return {"ok": False, "error": repr(exc)}
         if not result:
             return {"ok": False, "error": "cancelled"}
@@ -132,7 +132,7 @@ class JsApi:
             from pathlib import Path
 
             Path(path).write_bytes(data)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return {"ok": False, "error": repr(exc)}
         return {"ok": True, "path": str(path)}
 
@@ -146,7 +146,7 @@ class JsApi:
             pb.clearContents()
             pb.setString_forType_(text, "public.utf8-plain-text")
             return {"ok": True}
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return {"ok": False, "error": repr(exc)}
 
 

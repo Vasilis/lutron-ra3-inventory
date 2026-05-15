@@ -91,6 +91,11 @@ export function ProfilePickerDialog({
                       {t("profiles.no_certs")}
                     </span>
                   )}
+                  {p.active && (
+                    <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] uppercase text-emerald-500">
+                      {t("profiles.active")}
+                    </span>
+                  )}
                 </Button>
               </li>
             ))}

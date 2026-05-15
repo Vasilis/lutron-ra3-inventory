@@ -83,7 +83,9 @@ export async function saveFileNative(
   const bridge = api();
   if (!bridge?.save_file) return null;
   const content_b64 =
-    typeof payload === "string" ? toBase64Utf8(payload) : await blobToBase64(payload);
+    typeof payload === "string"
+      ? toBase64Utf8(payload)
+      : await blobToBase64(payload);
   return bridge.save_file(filename, content_b64);
 }
 

@@ -8,10 +8,13 @@ routes via ``app.state.config``.
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 from dataclasses import dataclass, field
 
 from .storage.paths import app_data_dir, config_path
+
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass
@@ -41,7 +44,15 @@ class Config:
             cfg = cls()
             cfg.save()
             return cfg
-        data = json.loads(p.read_text())
+        try:
+            data = json.loads(p.read_text())
+        except (json.JSONDecodeError, TypeError, ValueError):
+            backup = p.with_name(f"{p.name}.corrupt")
+            p.replace(backup)
+            _LOG.warning("Malformed config moved to %s; recreating defaults", backup)
+            cfg = cls()
+            cfg.save()
+            return cfg
         cfg = cls()
         # Only persist non-secret keys; session_token is always fresh.
         if "active_profile_serial" in data:

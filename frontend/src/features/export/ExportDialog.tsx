@@ -21,14 +21,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { getSessionToken } from "@/lib/api";
-import {
-  copyToClipboard,
-  isPyWebView,
-  saveFileNative,
-} from "@/lib/pywebview";
+import { copyToClipboard, isPyWebView, saveFileNative } from "@/lib/pywebview";
 import { t } from "@/i18n";
 
 type Format = "markdown" | "json" | "csv" | "xlsx";
+type ExportPreset = "recovery" | "technical" | "share" | "custom";
 
 interface ExportDialogProps {
   open: boolean;
@@ -56,13 +53,14 @@ const SECTIONS: SectionDef[] = [
 
 const ALL_SECTION_KEYS = new Set(SECTIONS.map((s) => s.key));
 
-/** Recovery-essentials default — no keypads (engravings not needed). */
+/** Recovery-essentials default — includes engravings for human reconstruction. */
 const RECOVERY_DEFAULT_SECTIONS = new Set([
   "header",
   "processor",
   "areas",
   "devices",
   "zones",
+  "keypads",
 ]);
 
 const FORMAT_META: Record<
@@ -141,10 +139,12 @@ type Status =
  */
 export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
   const [format, setFormat] = useState<Format>("markdown");
+  const [preset, setPreset] = useState<ExportPreset>("recovery");
   const [selectedSections, setSelectedSections] = useState<Set<string>>(
     new Set(RECOVERY_DEFAULT_SECTIONS),
   );
   const [verbose, setVerbose] = useState(false);
+  const [sanitized, setSanitized] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   /** Generated content: text for Markdown/JSON, Blob for CSV/XLSX. */
@@ -175,9 +175,24 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
       setStatus({ kind: "idle" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [format, selectedSections, verbose]);
+  }, [format, selectedSections, verbose, sanitized]);
+
+  const applyPreset = (next: ExportPreset) => {
+    setPreset(next);
+    setFormat("markdown");
+    if (next === "technical") {
+      setSelectedSections(new Set(ALL_SECTION_KEYS));
+      setVerbose(true);
+      setSanitized(false);
+      return;
+    }
+    setSelectedSections(new Set(RECOVERY_DEFAULT_SECTIONS));
+    setVerbose(false);
+    setSanitized(next === "share");
+  };
 
   const toggle = (key: string) => {
+    setPreset("custom");
     setSelectedSections((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -187,6 +202,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
   };
 
   const setAll = (on: boolean) => {
+    setPreset("custom");
     setSelectedSections(on ? new Set(ALL_SECTION_KEYS) : new Set());
   };
 
@@ -194,6 +210,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
     const token = getSessionToken();
     const params = new URLSearchParams();
     if (token) params.set("token", token);
+    if (sanitized) params.set("sanitized", "true");
     if (meta.supportsSections && !allSelected) {
       params.set("sections", Array.from(selectedSections).join(","));
     }
@@ -202,6 +219,10 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
     }
     return `${meta.path}?${params.toString()}`;
   };
+
+  const filename = sanitized
+    ? meta.filename.replace("inventory", "inventory-sanitized")
+    : meta.filename;
 
   /** Fetch the configured export. Text formats land in textPreview;
    *  binary formats land in binaryBlob. */
@@ -236,7 +257,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
     try {
       const payload: string | Blob = meta.isText ? textPreview! : binaryBlob!;
       // Try native first.
-      const native = await saveFileNative(meta.filename, payload);
+      const native = await saveFileNative(filename, payload);
       if (native) {
         if (native.ok && native.path) {
           setStatus({ kind: "saved", path: native.path });
@@ -255,7 +276,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = meta.filename;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -275,7 +296,8 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
     if (ok) {
       setStatus({ kind: "copied" });
       window.setTimeout(
-        () => setStatus((cur) => (cur.kind === "copied" ? { kind: "idle" } : cur)),
+        () =>
+          setStatus((cur) => (cur.kind === "copied" ? { kind: "idle" } : cur)),
         2_000,
       );
     } else {
@@ -285,7 +307,8 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
       textareaRef.current?.select();
       setStatus({
         kind: "error",
-        message: "Couldn't access the clipboard. Press Cmd+C with the text selected.",
+        message:
+          "Couldn't access the clipboard. Press Cmd+C with the text selected.",
       });
     }
   };
@@ -295,11 +318,33 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col gap-4">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col gap-4 overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{t("export.title")}</DialogTitle>
           <DialogDescription>{t("export.description")}</DialogDescription>
         </DialogHeader>
+
+        <div className="-mr-3 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-3">
+        <section className="flex flex-col gap-2">
+          <Label>{t("export.preset")}</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {(["recovery", "technical", "share"] as const).map((value) => (
+              <Button
+                key={value}
+                type="button"
+                variant={preset === value ? "default" : "outline"}
+                onClick={() => applyPreset(value)}
+                className="h-auto flex-col items-start gap-0.5 px-3 py-2 text-left"
+                disabled={busy}
+              >
+                <span className="text-sm">{t(`export.preset.${value}`)}</span>
+                <span className="text-xs font-normal opacity-75">
+                  {t(`export.preset.${value}_help`)}
+                </span>
+              </Button>
+            ))}
+          </div>
+        </section>
 
         <section className="flex flex-col gap-2">
           <Label>{t("export.format")}</Label>
@@ -312,7 +357,10 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
                   key={f}
                   type="button"
                   variant={f === format ? "default" : "outline"}
-                  onClick={() => setFormat(f)}
+                  onClick={() => {
+                    setPreset("custom");
+                    setFormat(f);
+                  }}
                   className="h-14 flex-col gap-1"
                   disabled={busy}
                 >
@@ -363,7 +411,10 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
             <div className="mt-1 flex flex-col gap-1 rounded-md bg-muted/40 p-3">
               <Checkbox
                 checked={verbose}
-                onChange={() => setVerbose((v) => !v)}
+                onChange={() => {
+                  setPreset("custom");
+                  setVerbose((v) => !v);
+                }}
                 disabled={busy}
                 label={
                   <span className="flex flex-col">
@@ -378,21 +429,44 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
           </section>
         )}
 
+        <section className="rounded-md border border-border bg-muted/30 p-3">
+          <Checkbox
+            checked={sanitized}
+            onChange={() => {
+              setPreset("custom");
+              setSanitized((value) => !value);
+            }}
+            disabled={busy}
+            label={
+              <span className="flex flex-col">
+                <span className="font-medium">{t("export.sanitized")}</span>
+                <span className="text-xs text-muted-foreground">
+                  {t("export.sanitized_help")}
+                </span>
+              </span>
+            }
+          />
+        </section>
+
         {hasContent && (
-          <section className="flex min-h-0 flex-1 flex-col gap-2 border-t border-border pt-4">
-            <Label>{meta.isText ? t("export.preview") : t("export.binary_ready")}</Label>
+          <section className="flex flex-col gap-2 border-t border-border pt-4">
+            <Label>
+              {meta.isText ? t("export.preview") : t("export.binary_ready")}
+            </Label>
             {meta.isText && textPreview !== null ? (
               <textarea
                 ref={textareaRef}
                 readOnly
                 value={textPreview}
-                className="min-h-[12rem] flex-1 resize-none rounded-md border border-border bg-background p-3 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-[24rem] resize-none rounded-md border border-border bg-background p-3 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 spellCheck={false}
               />
             ) : (
               <div className="rounded-md border border-border bg-card/40 p-4 text-sm text-muted-foreground">
-                {meta.label} bundle generated ({Math.round((binaryBlob?.size ?? 0) / 1024)} KB).
-                Click <span className="font-medium">Save to file…</span> to write it to disk.
+                {meta.label} bundle generated (
+                {Math.round((binaryBlob?.size ?? 0) / 1024)} KB). Click{" "}
+                <span className="font-medium">Save to file…</span> to write it
+                to disk.
               </div>
             )}
           </section>
@@ -410,9 +484,14 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
             <code className="font-mono">{status.path}</code>
           </div>
         )}
+        </div>
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+        <DialogFooter className="shrink-0">
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+          >
             {t("common.close")}
           </Button>
           {!hasContent ? (
@@ -458,7 +537,9 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
                 ) : (
                   <>
                     <Save className="size-4" />
-                    {inPyWebView ? t("export.save_to_file") : t("export.download")}
+                    {inPyWebView
+                      ? t("export.save_to_file")
+                      : t("export.download")}
                   </>
                 )}
               </Button>

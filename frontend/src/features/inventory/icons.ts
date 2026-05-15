@@ -20,7 +20,9 @@ import {
   TunableLightIcon,
 } from "@/components/lutron-icons";
 
-type IconComponent = LucideIcon | ((props: { className?: string }) => JSX.Element);
+type IconComponent =
+  | LucideIcon
+  | ((props: { className?: string }) => JSX.Element);
 
 const SHADE_TYPES = [
   "PalladiomShade",
@@ -110,20 +112,26 @@ const LAMP_TYPES = [
 export function deviceCategoryIcon(deviceType: string): IconComponent {
   if (deviceType === "RadioRa3Processor" || deviceType === "JanusProcRA3")
     return ProcessorIcon;
-  if (deviceType === "FourGroupRemote" || deviceType === "CasetaFourGroupRemote")
+  if (
+    deviceType === "FourGroupRemote" ||
+    deviceType === "CasetaFourGroupRemote"
+  )
     return FourGroupRemoteIcon;
   if (deviceType === "SunnataHybridKeypad") return SunnataHybridKeypadIcon;
   if (deviceType === "SunnataKeypad") return SunnataKeypadIcon;
   if (deviceType === "SunnataDimmer") return SunnataDimmerIcon;
-  if ((KEYPAD_TYPES as readonly string[]).includes(deviceType)) return SunnataKeypadIcon;
+  if ((KEYPAD_TYPES as readonly string[]).includes(deviceType))
+    return SunnataKeypadIcon;
   if ((PICO_TYPES as readonly string[]).includes(deviceType)) return PicoIcon;
   if ((SHADE_TYPES as readonly string[]).includes(deviceType)) return ShadeIcon;
   if (deviceType === "Lumaris") return TunableLightIcon;
   if ((LAMP_TYPES as readonly string[]).includes(deviceType)) return Sun;
-  if ((DIMMER_TYPES as readonly string[]).includes(deviceType)) return Lightbulb;
+  if ((DIMMER_TYPES as readonly string[]).includes(deviceType))
+    return Lightbulb;
   if ((SWITCH_TYPES as readonly string[]).includes(deviceType)) return Power;
   if ((FAN_TYPES as readonly string[]).includes(deviceType)) return Fan;
-  if ((SENSOR_TYPES as readonly string[]).includes(deviceType)) return Thermometer;
+  if ((SENSOR_TYPES as readonly string[]).includes(deviceType))
+    return Thermometer;
   if (deviceType === "KeypadLED") return Wifi;
   if (deviceType.endsWith("Plug")) return Plug;
   return Box;

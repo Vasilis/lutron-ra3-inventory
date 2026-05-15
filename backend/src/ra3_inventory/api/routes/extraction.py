@@ -50,7 +50,14 @@ async def _run_extraction(app, channel_id: str, body: ExtractStartRequest) -> No
     try:
         certs = materialize_pairing(body.profile_serial, passphrase=body.disk_passphrase)
         if certs is None:
-            raise RuntimeError(f"no pairing creds for profile {body.profile_serial}")
+            await channel.publish(
+                {
+                    "phase": "error",
+                    "error": f"no pairing creds for profile {body.profile_serial}",
+                    "kind": "missing_credentials",
+                }
+            )
+            return
 
         meta_path = profile_json_path(body.profile_serial)
         host = "?"

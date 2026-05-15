@@ -9,7 +9,8 @@
 The [community `pylutron-caseta` library](https://github.com/gurumitts/pylutron-caseta) exposes a parsed API that's great for home-automation integration but lossy as an inventory: every shade collapses to `type="Shade"` with `model=None`, button programming is invisible, and RA3-specific endpoints (`/areascene`, `/project/timeclockeventrules`, `/virtualbutton`) are skipped. Integrators and homeowners who want a faithful picture of their system have to drop to raw LEAP requests.
 
 This app is being built to do that for you behind a UI. The backend extraction,
-snapshot, and export pipeline exists today; the desktop UI has not been built yet.
+snapshot, and export pipeline exist today, and the desktop UI now covers pairing,
+profile selection, three-pane browsing, refresh, and export.
 
 ## What you'll get (when M1 ships)
 
@@ -34,7 +35,7 @@ snapshot, and export pipeline exists today; the desktop UI has not been built ye
 |---|---|
 | Backend | Python 3.10+ · FastAPI · Pydantic v2 |
 | LEAP | Vendored pairing + TLS + LEAP transport from pylutron-caseta (Apache-2.0) |
-| Frontend (planned) | React 18 · Vite · TypeScript (strict) · Tailwind · shadcn/ui |
+| Frontend | React 18 · Vite · TypeScript (strict) · Tailwind · shadcn/ui |
 | Shell | PyWebView (WKWebView on macOS) |
 | Packaging | `briefcase` → codesigned + notarized `.app` (universal2) |
 
@@ -73,6 +74,10 @@ python scripts/validate-live.py --host 192.0.2.1 --certs-dir /path/to/lutron_cer
 cd frontend
 npm install
 npm run dev
+# quality gate
+npm run lint
+npm run format:check
+npm run build
 ```
 
 The Vite dev server proxies API calls to `http://127.0.0.1:8000` by default.
@@ -82,9 +87,8 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for coding standards and PR workflow.
 
 ## Pairing
 
-The backend pairing API is implemented; the first-launch wizard is still planned.
-When pairing is exposed through the UI, you will **walk to your RA 3 processor
-and press the small black button on the front** within 30 seconds.
+The pairing flow is available in the desktop UI. You will **walk to your RA 3
+processor and press the small black button on the front** within 30 seconds.
 
 By default, pairing credentials are stored in the macOS Keychain. If Keychain
 is unavailable, callers must provide a passphrase so the backend can use the
@@ -98,7 +102,7 @@ Only **one** LEAP client can be connected to a processor at a time. If you also 
 
 - Private keys are stored in the macOS Keychain by default; when Keychain is unavailable, the backend requires a passphrase for the Fernet + scrypt encrypted on-disk fallback.
 - LEAP traffic is TLS, but the processor's CA is self-signed by Lutron — that's why we pin the bridge cert alongside our client cert.
-- Snapshots may contain device serials, MAC addresses, and network info. The default export to JSON/CSV/XLSX includes these; use `?sanitized=true` on export endpoints or `scripts/sanitize-snapshot.py` before sharing a snapshot publicly.
+- Snapshots may contain device serials, MAC addresses, and network info. The export dialog includes a **Share-safe** preset, and the API also supports `?sanitized=true`; use one of those before sharing a snapshot publicly.
 
 ## License
 

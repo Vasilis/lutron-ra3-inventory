@@ -280,6 +280,15 @@ class InventoryExtractor:
             await self._emit("presets", "Resolving presets", progress=0.8)
             presets = await self._fetch_presets(programming_models.values())
 
+            ending_project = _first_obj_from_body(await self._read("/project"))
+            starting_project = _first_obj_from_body(toplevel.get("/project"))
+            partial = bool(
+                starting_project
+                and ending_project
+                and starting_project.get("ProjectModifiedTimestamp")
+                != ending_project.get("ProjectModifiedTimestamp")
+            )
+
             await self._emit("indexing", "Building typed inventory", progress=0.95)
             inventory = self._build_inventory(
                 started=started,
@@ -291,6 +300,7 @@ class InventoryExtractor:
                 bg_expansions=bg_expansions,
                 programming_models=programming_models,
                 presets=presets,
+                partial=partial,
             )
 
             await self._emit("done", "Extraction complete", progress=1.0)
@@ -462,15 +472,10 @@ class InventoryExtractor:
         bg_expansions: dict[str, list[ButtonGroup]],
         programming_models: dict[str, ProgrammingModel],
         presets: dict[str, Preset],
+        partial: bool,
     ) -> ProcessorInventory:
         project_obj = _first_obj_from_body(toplevel.get("/project")) or {}
         server_obj = _first_obj_from_body(toplevel.get("/server/1"))
-
-        # Detect a mid-walk Designer push by comparing the project's modified
-        # timestamp before and after — for M1 we read it once at /project; a
-        # follow-up read happens at the end.
-        partial = False
-        # (M2 enhancement: re-read /project here and compare timestamps.)
 
         return ProcessorInventory(
             extracted_at=started,

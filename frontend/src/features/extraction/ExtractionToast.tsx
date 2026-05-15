@@ -18,8 +18,10 @@ import { cn } from "@/lib/utils";
 interface ExtractionToastProps {
   trigger: number;
   profileSerial: string | null;
+  diskPassphrase?: string;
   onComplete?: () => void;
   onRunningChange?: (running: boolean) => void;
+  onCredentialError?: () => void;
 }
 
 interface PhaseState {
@@ -30,14 +32,24 @@ interface PhaseState {
 export function ExtractionToast({
   trigger,
   profileSerial,
+  diskPassphrase,
   onComplete,
   onRunningChange,
+  onCredentialError,
 }: ExtractionToastProps) {
   const qc = useQueryClient();
   const [phase, setPhase] = useState<PhaseState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const subRef = useRef<SseSubscription | null>(null);
+  const streamLostTimerRef = useRef<number | null>(null);
+
+  const clearStreamLostTimer = () => {
+    if (streamLostTimerRef.current !== null) {
+      window.clearTimeout(streamLostTimerRef.current);
+      streamLostTimerRef.current = null;
+    }
+  };
 
   // Kick a new extraction whenever ``trigger`` increments.
   useEffect(() => {
@@ -50,12 +62,17 @@ export function ExtractionToast({
 
     (async () => {
       try {
-        const { extract_id } = await api.startExtraction(profileSerial);
+        const { extract_id } = await api.startExtraction(
+          profileSerial,
+          false,
+          diskPassphrase,
+        );
         if (cancelled) return;
 
         subRef.current = subscribeSse<ExtractEvent>({
           url: extractEventsUrl(extract_id),
           onEvent: (event) => {
+            clearStreamLostTimer();
             if (event.phase === "success" || event.phase === "done") {
               setPhase(null);
               setSuccess(event.detail ?? t("extract.success"));
@@ -70,7 +87,10 @@ export function ExtractionToast({
               const msg =
                 event.kind === "already_connected"
                   ? t("extract.already_connected")
-                  : (event.error ?? t("extract.error"));
+                  : event.kind === "missing_credentials"
+                    ? t("extract.bad_passphrase")
+                    : (event.error ?? t("extract.error"));
+              if (event.kind === "missing_credentials") onCredentialError?.();
               setError(msg);
               subRef.current?.close();
               subRef.current = null;
@@ -83,11 +103,21 @@ export function ExtractionToast({
             }
           },
           onError: () => {
-            // EventSource transient drop — only surface if we still expect
-            // events.
-            if (subRef.current && !success) {
-              // Let it try to reconnect silently.
-            }
+            if (
+              !subRef.current ||
+              success ||
+              streamLostTimerRef.current !== null
+            )
+              return;
+            streamLostTimerRef.current = window.setTimeout(() => {
+              if (!subRef.current) return;
+              setPhase(null);
+              setError(t("extract.stream_lost"));
+              subRef.current.close();
+              subRef.current = null;
+              onRunningChange?.(false);
+              streamLostTimerRef.current = null;
+            }, 15_000);
           },
         });
       } catch (err) {
@@ -101,12 +131,19 @@ export function ExtractionToast({
 
     return () => {
       cancelled = true;
+      clearStreamLostTimer();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trigger, profileSerial]);
 
   // Clean up on unmount
-  useEffect(() => () => subRef.current?.close(), []);
+  useEffect(
+    () => () => {
+      clearStreamLostTimer();
+      subRef.current?.close();
+    },
+    [],
+  );
 
   if (!phase && !error && !success) return null;
 

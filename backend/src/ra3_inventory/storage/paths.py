@@ -62,8 +62,21 @@ def profiles_dir() -> Path:
     return app_data_dir() / "profiles"
 
 
+def validate_profile_serial(serial: str) -> str:
+    """Validate a profile-directory component before joining it into paths."""
+    if (
+        not serial
+        or serial in {".", ".."}
+        or "/" in serial
+        or "\\" in serial
+        or Path(serial).name != serial
+    ):
+        raise ValueError(f"invalid profile serial {serial!r}")
+    return serial
+
+
 def profile_dir(serial: str) -> Path:
-    return profiles_dir() / serial
+    return profiles_dir() / validate_profile_serial(serial)
 
 
 def profile_json_path(serial: str) -> Path:

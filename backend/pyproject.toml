@@ -60,9 +60,9 @@ build = [
 ra3-inventory = "ra3_inventory.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/REPLACE/lutron-ra3-inventory"
-Issues = "https://github.com/REPLACE/lutron-ra3-inventory/issues"
-Changelog = "https://github.com/REPLACE/lutron-ra3-inventory/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Vasilis/lutron-ra3-inventory"
+Issues = "https://github.com/Vasilis/lutron-ra3-inventory/issues"
+Changelog = "https://github.com/Vasilis/lutron-ra3-inventory/blob/main/CHANGELOG.md"
 
 [tool.hatch.version]
 path = "src/ra3_inventory/__init__.py"
@@ -79,7 +79,7 @@ packages = ["src/ra3_inventory"]
 project_name = "RA3 Inventory"
 bundle = "com.ra3inventory"
 version = "0.1.0"
-url = "https://github.com/REPLACE/lutron-ra3-inventory"
+url = "https://github.com/Vasilis/lutron-ra3-inventory"
 license.file = "../LICENSE"
 author = "lutron-ra3-inventory contributors"
 author_email = "noreply@example.com"

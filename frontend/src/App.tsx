@@ -4,6 +4,16 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -31,6 +41,8 @@ export function App() {
   const [pairingOpen, setPairingOpen] = useState(false);
   const [profilePickerOpen, setProfilePickerOpen] = useState(false);
   const [extractTrigger, setExtractTrigger] = useState(0);
+  const [diskPassphrase, setDiskPassphrase] = useState("");
+  const [passphrasePromptOpen, setPassphrasePromptOpen] = useState(false);
 
   // Pairing state + extraction-in-flight live in the Zustand store so the
   // top-bar BackendStatus pill can read them without prop drilling.
@@ -45,12 +57,23 @@ export function App() {
     retry: false,
   });
 
-  // Auto-activate the only saved profile if nothing's active yet (most
-  // homes have exactly one processor).
+  const activeProfile = profilesQuery.data?.find(
+    (profile) => profile.serial === activeProfileSerial,
+  );
+
+  // Hydrate the backend's remembered active profile first. If there isn't
+  // one, auto-activate the only saved profile (most homes have one processor).
   useEffect(() => {
     if (activeProfileSerial) return;
     const profiles = profilesQuery.data;
-    if (!profiles || profiles.length !== 1) return;
+    if (!profiles) return;
+    const remembered = profiles.find((profile) => profile.active);
+    if (remembered) {
+      setActiveProfileSerial(remembered.serial);
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      return;
+    }
+    if (profiles.length !== 1) return;
     const serial = profiles[0].serial;
     let cancelled = false;
     void api.activateProfile(serial).then(() => {
@@ -97,13 +120,23 @@ export function App() {
   }
 
   const hasProfiles = (profilesQuery.data?.length ?? 0) > 0;
+  const requestExtract = () => {
+    if (
+      activeProfile?.credential_storage === "encrypted_disk" &&
+      !diskPassphrase.trim()
+    ) {
+      setPassphrasePromptOpen(true);
+      return;
+    }
+    setExtractTrigger((value) => value + 1);
+  };
 
   return (
     <>
       <AppShell>
         {activeProfileSerial ? (
           <InventoryBrowser
-            onExtract={() => setExtractTrigger((value) => value + 1)}
+            onExtract={requestExtract}
             isExtracting={isExtracting}
           />
         ) : (
@@ -117,19 +150,82 @@ export function App() {
       <PairingDialog
         open={pairingOpen}
         onOpenChange={setPairingOpen}
-        onPaired={setActiveProfileSerial}
+        onPaired={(serial, nextPassphrase) => {
+          setActiveProfileSerial(serial);
+          setDiskPassphrase(nextPassphrase ?? "");
+        }}
       />
       <ProfilePickerDialog
         open={profilePickerOpen}
         onOpenChange={setProfilePickerOpen}
-        onPicked={setActiveProfileSerial}
+        onPicked={(serial) => {
+          setActiveProfileSerial(serial);
+          setDiskPassphrase("");
+        }}
       />
       <ExtractionToast
         trigger={extractTrigger}
         profileSerial={activeProfileSerial}
+        diskPassphrase={diskPassphrase.trim() || undefined}
         onRunningChange={setIsExtracting}
+        onCredentialError={() => setDiskPassphrase("")}
+      />
+      <DiskPassphraseDialog
+        open={passphrasePromptOpen}
+        onOpenChange={setPassphrasePromptOpen}
+        value={diskPassphrase}
+        onValueChange={setDiskPassphrase}
+        onContinue={() => {
+          setPassphrasePromptOpen(false);
+          setExtractTrigger((value) => value + 1);
+        }}
       />
     </>
+  );
+}
+
+function DiskPassphraseDialog({
+  open,
+  onOpenChange,
+  value,
+  onValueChange,
+  onContinue,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  value: string;
+  onValueChange: (value: string) => void;
+  onContinue: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("extract.passphrase_title")}</DialogTitle>
+          <DialogDescription>{t("extract.passphrase_body")}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="extract-passphrase">
+            {t("pair.passphrase_label")}
+          </Label>
+          <Input
+            id="extract-passphrase"
+            type="password"
+            value={value}
+            onChange={(event) => onValueChange(event.target.value)}
+            autoComplete="current-password"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button onClick={onContinue} disabled={!value.trim()}>
+            {t("extract.continue")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

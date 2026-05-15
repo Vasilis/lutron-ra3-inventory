@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAppStore } from "@/stores/app-store";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +13,8 @@ import { cn } from "@/lib/utils";
  * is bundled inside the app process and only comes back via app restart.
  */
 export function BackendStatus() {
+  const activeProfileSerial = useAppStore((state) => state.activeProfileSerial);
+  const isExtracting = useAppStore((state) => state.isExtracting);
   const query = useQuery({
     queryKey: ["health"],
     queryFn: () => api.health(),
@@ -31,8 +34,16 @@ export function BackendStatus() {
     label = t("status.offline");
     icon = <AlertCircle className="size-3.5" />;
     tone = "text-destructive bg-destructive/10";
+  } else if (isExtracting) {
+    label = t("status.extracting");
+    icon = <Loader2 className="size-3.5 animate-spin" />;
+    tone = "text-primary bg-primary/10";
+  } else if (!activeProfileSerial) {
+    label = t("status.no_profile");
+    icon = <CheckCircle2 className="size-3.5" />;
+    tone = "text-muted-foreground bg-muted/40";
   } else {
-    label = t("status.online");
+    label = t("status.ready");
     icon = <CheckCircle2 className="size-3.5" />;
     tone = "text-emerald-500 bg-emerald-500/10";
   }

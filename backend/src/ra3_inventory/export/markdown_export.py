@@ -81,8 +81,8 @@ _POSITION_RE = re.compile(r"^Position\s+\d+$", re.IGNORECASE)
 
 def _position_display_name(
     d: Device,
-    areas_by_href: dict[str, "Area"],
-    zones_by_href: dict[str, "Zone"] | None = None,
+    areas_by_href: dict[str, Area],
+    zones_by_href: dict[str, Zone] | None = None,
 ) -> str:
     """Best-effort meaningful label for a device — mirrors the frontend's
     ``deviceDisplayName`` priority order:
@@ -159,9 +159,7 @@ def to_markdown(
         lines.append("")
 
     if "processor" not in selected:
-        return _emit_remaining_sections(
-            lines, inv, areas_by_href, zones_by_href, selected, verbose
-        )
+        return _emit_remaining_sections(lines, inv, areas_by_href, zones_by_href, selected, verbose)
 
     # Processor
     p = inv.processor
@@ -185,16 +183,14 @@ def to_markdown(
         lines.append(f"| AddressedState | {p.AddressedState or '?'} |")
     lines.append("")
 
-    return _emit_remaining_sections(
-        lines, inv, areas_by_href, zones_by_href, selected, verbose
-    )
+    return _emit_remaining_sections(lines, inv, areas_by_href, zones_by_href, selected, verbose)
 
 
 def _emit_remaining_sections(
     lines: list[str],
     inv: ProcessorInventory,
-    areas_by_href: dict[str, "Area"],
-    zones_by_href: dict[str, "Zone"],
+    areas_by_href: dict[str, Area],
+    zones_by_href: dict[str, Zone],
     selected: set[str],
     verbose: bool,
 ) -> str:
@@ -249,9 +245,7 @@ def _emit_remaining_sections(
             lines.append("| Area | Full path |")
             lines.append("|---|---|")
             for a in sorted_areas:
-                lines.append(
-                    f"| {a.Name or '?'} | {area_path(a.href, areas_by_href)} |"
-                )
+                lines.append(f"| {a.Name or '?'} | {area_path(a.href, areas_by_href)} |")
         lines.append("")
 
     if "devices" in selected:
@@ -262,7 +256,9 @@ def _emit_remaining_sections(
 
         lines.append("## Devices by Area" + (" (full fields)" if verbose else ""))
         lines.append("")
-        for ahref in sorted(by_area.keys(), key=lambda h: area_path(h, areas_by_href) if h else "zzz"):
+        for ahref in sorted(
+            by_area.keys(), key=lambda h: area_path(h, areas_by_href) if h else "zzz"
+        ):
             label = area_path(ahref, areas_by_href) if ahref else "_(unassigned)_"
             lines.append(f"### {label}")
             lines.append("")
@@ -331,8 +327,7 @@ def _emit_remaining_sections(
             lines.append("## Keypads — Buttons & Programming")
             lines.append("")
             lines.append(
-                "_For each keypad/pico/remote: every button with its engraving "
-                "and what it does._"
+                "_For each keypad/pico/remote: every button with its engraving and what it does._"
             )
         else:
             lines.append("## Keypads — Button Engravings")
@@ -353,7 +348,9 @@ def _emit_remaining_sections(
                 if d is None:
                     continue
                 ahref = d.AssociatedArea.href if d.AssociatedArea is not None else None
-                lines.append(f"### {_position_display_name(d, areas_by_href, zones_by_href)} — `{dhref}`")
+                lines.append(
+                    f"### {_position_display_name(d, areas_by_href, zones_by_href)} — `{dhref}`"
+                )
                 lines.append(
                     f"_{d.DeviceType} {d.ModelNumber or ''} · "
                     f"Area: {area_path(ahref, areas_by_href) if ahref else '?'} · "

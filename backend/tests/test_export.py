@@ -83,7 +83,7 @@ def _make_inventory() -> ProcessorInventory:
     return ProcessorInventory(
         extracted_at=datetime.now(timezone.utc),
         source="fixture",
-        host="192.168.1.184",
+        host="192.0.2.184",
         duration_seconds=1.23,
         processor=processor,
         project=Project(

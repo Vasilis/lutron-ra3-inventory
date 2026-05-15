@@ -65,7 +65,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
         <section className="flex flex-col gap-3 border-t border-border pt-4 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">{t("settings.version")}</span>
+            <span className="text-muted-foreground">
+              {t("settings.version")}
+            </span>
             <span className="font-mono">
               {version.data ? `v${version.data.app_version}` : "…"}
             </span>

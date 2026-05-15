@@ -139,6 +139,8 @@ export interface ProfileSummary {
   last_seen: string | null;
   firmware: string | null;
   has_certs: boolean;
+  credential_storage: "keychain" | "encrypted_disk" | "plain_disk" | "none";
+  active: boolean;
 }
 
 export type PairPhase =
@@ -177,5 +179,5 @@ export interface ExtractEvent {
   detail?: string;
   progress?: number;
   error?: string;
-  kind?: "already_connected";
+  kind?: "already_connected" | "missing_credentials";
 }

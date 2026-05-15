@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Settings } from "lucide-react";
+import { ArrowUpCircle, Download, Settings } from "lucide-react";
 import { BackendStatus } from "@/components/BackendStatus";
 import { Button } from "@/components/ui/button";
 import { ExportDialog } from "@/features/export/ExportDialog";
@@ -8,7 +8,6 @@ import { SettingsDialog } from "@/features/settings/SettingsDialog";
 import { countDevicesWithFirmwareUpdates } from "@/features/inventory/helpers";
 import { ApiError, api } from "@/lib/api";
 import { useAppStore } from "@/stores/app-store";
-import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
 interface AppShellProps {
@@ -65,6 +64,25 @@ export function AppShell({ left, center, right, children }: AppShellProps) {
         </div>
         <div className="flex items-center gap-2">
           <BackendStatus />
+          {firmwareUpdateCount > 0 && (
+            <div
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-500"
+              title={t(
+                firmwareUpdateCount === 1
+                  ? "inventory.firmware_updates_available"
+                  : "inventory.firmware_updates_available_plural",
+                { count: firmwareUpdateCount },
+              )}
+            >
+              <ArrowUpCircle className="size-3.5" />
+              {t(
+                firmwareUpdateCount === 1
+                  ? "inventory.firmware_updates_available"
+                  : "inventory.firmware_updates_available_plural",
+                { count: firmwareUpdateCount },
+              )}
+            </div>
+          )}
           {activeProfileSerial && (
             <Button
               variant="ghost"
@@ -76,27 +94,14 @@ export function AppShell({ left, center, right, children }: AppShellProps) {
               {t("export.label")}
             </Button>
           )}
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={t("settings.label")}
-              onClick={() => setSettingsOpen(true)}
-            >
-              <Settings className="size-4" />
-            </Button>
-            {firmwareUpdateCount > 0 && (
-              <span
-                className={cn(
-                  "pointer-events-none absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-background ring-2 ring-background",
-                )}
-                title={`${firmwareUpdateCount} device${firmwareUpdateCount === 1 ? "" : "s"} with firmware updates`}
-                aria-label={`${firmwareUpdateCount} firmware updates available`}
-              >
-                {firmwareUpdateCount > 9 ? "9+" : firmwareUpdateCount}
-              </span>
-            )}
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t("settings.label")}
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings className="size-4" />
+          </Button>
         </div>
       </header>
 

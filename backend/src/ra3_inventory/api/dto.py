@@ -26,6 +26,8 @@ class ProfileSummary(RA3Model):
     last_seen: datetime | None = None
     firmware: str | None = None
     has_certs: bool
+    credential_storage: Literal["keychain", "encrypted_disk", "plain_disk", "none"]
+    active: bool = False
 
 
 class ProfileCreate(RA3Model):

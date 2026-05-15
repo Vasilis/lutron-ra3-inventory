@@ -21,8 +21,8 @@ class Project(RA3Resource):
     - A ``{"Year": ..., "Month": ..., "Day": ..., "Hour": ..., "Minute": ...,
       "Second": ..., "Utc": "0"}`` dict.
 
-    We accept either; the M2 partial-extraction detection just compares
-    equality against a prior reading, so the structural shape doesn't
+    We accept either; partial-extraction detection compares equality
+    against a second reading at the end of the walk, so the structural shape doesn't
     matter as long as both reads agree."""
 
     MasterDeviceList: dict | None = None

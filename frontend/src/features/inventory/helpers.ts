@@ -49,7 +49,9 @@ export function firmwareDisplay(fw: DeviceFirmwareImage | null): string | null {
  * Firmware version display strings are opaque to us (Lutron's own
  * "DisplayName"); we only compare for inequality.
  */
-export function firmwareUpdate(fw: DeviceFirmwareImage | null): FirmwareUpdate | null {
+export function firmwareUpdate(
+  fw: DeviceFirmwareImage | null,
+): FirmwareUpdate | null {
   if (!fw?.Contents) return null;
   for (const item of fw.Contents) {
     for (const slot of [item.OS, item.Boot]) {

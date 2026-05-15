@@ -107,6 +107,19 @@ def test_deleting_active_profile_clears_config(monkeypatch, tmp_path: Path) -> N
     assert json.loads((tmp_path / "config.json").read_text())["active_profile_serial"] is None
 
 
+def test_profile_routes_reject_encoded_traversal(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("ra3_inventory.storage.paths.app_data_dir", lambda: tmp_path)
+    cfg = Config(session_token="test-token")
+    client = TestClient(create_app(cfg))
+    headers = {"X-RA3-Token": cfg.session_token}
+
+    activated = client.post("/profiles/%2E%2E/activate", headers=headers)
+    deleted = client.delete("/profiles/%2E%2E", headers=headers)
+
+    assert activated.status_code == 400
+    assert deleted.status_code == 400
+
+
 def test_profiles_report_encrypted_disk_credentials(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("ra3_inventory.storage.paths.app_data_dir", lambda: tmp_path)
     monkeypatch.setattr("ra3_inventory.api.routes.profiles.keychain.is_available", lambda: False)
@@ -120,6 +133,7 @@ def test_profiles_report_encrypted_disk_credentials(monkeypatch, tmp_path: Path)
 
     assert resp.status_code == 200
     assert resp.json()[0]["has_certs"] is True
+    assert resp.json()[0]["credential_storage"] == "encrypted_disk"
 
 
 def test_snapshot_routes_reject_reserved_or_traversal_names(monkeypatch, tmp_path: Path) -> None:

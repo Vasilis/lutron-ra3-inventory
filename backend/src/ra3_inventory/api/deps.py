@@ -9,6 +9,7 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from ..config import Config
 from ..models import ProcessorInventory
 from ..storage import read_latest
+from ..storage.paths import validate_profile_serial
 
 
 def get_config(request: Request) -> Config:
@@ -31,7 +32,10 @@ def active_profile_serial(
 ) -> str:
     if cfg.active_profile_serial is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no active profile — pair first")
-    return cfg.active_profile_serial
+    try:
+        return validate_profile_serial(cfg.active_profile_serial)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "active profile is invalid") from exc
 
 
 def latest_inventory(

@@ -33,18 +33,28 @@ from ra3_inventory.storage import keychain, materialize_pairing, write_snapshot
 from ra3_inventory.storage.certs import store_pairing_to_disk
 from ra3_inventory.storage.paths import ensure_profile_tree, profile_json_path
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-5s %(name)s: %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)-5s %(name)s: %(message)s"
+)
 _LOG = logging.getLogger("validate-live")
 
 
 def _on_progress(event) -> None:
-    pct = f"{int((event.progress or 0) * 100):3d}%" if event.progress is not None else "  -"
+    pct = (
+        f"{int((event.progress or 0) * 100):3d}%"
+        if event.progress is not None
+        else "  -"
+    )
     print(f"  [{pct}] {event.phase:<22s} {event.detail}", flush=True)
 
 
 async def _derive_serial(host: str, certs_tmp: Path) -> tuple[str, RadioRa3Processor]:
     """Open one LEAP connection to recover the processor's SerialNumber."""
-    key, cert, ca = certs_tmp / "caseta.key", certs_tmp / "caseta.crt", certs_tmp / "caseta-bridge.crt"
+    key, cert, ca = (
+        certs_tmp / "caseta.key",
+        certs_tmp / "caseta.crt",
+        certs_tmp / "caseta-bridge.crt",
+    )
     proto = await connect_leap(host, keyfile=key, certfile=cert, ca_certs=ca)
     proto_task = asyncio.create_task(proto.run())
     try:
@@ -89,7 +99,9 @@ async def _run(args: argparse.Namespace) -> int:
             shutil.copy2(src / n, tmp / n)
         _LOG.info("Probing %s for processor serial...", args.host)
         serial, processor = await _derive_serial(args.host, tmp)
-        _LOG.info("Processor serial: %s (%s)", serial, processor.Name or processor.ModelNumber)
+        _LOG.info(
+            "Processor serial: %s (%s)", serial, processor.Name or processor.ModelNumber
+        )
 
         # Install certs into the profile tree or Keychain.
         ensure_profile_tree(serial)
@@ -124,11 +136,16 @@ async def _run(args: argparse.Namespace) -> int:
         fw = ""
         if processor.FirmwareImage and processor.FirmwareImage.Firmware:
             fw = processor.FirmwareImage.Firmware.DisplayName or ""
-        profile_json_path(serial).write_text(json.dumps({
-            "name": args.name,
-            "host": args.host,
-            "firmware": fw,
-        }, indent=2))
+        profile_json_path(serial).write_text(
+            json.dumps(
+                {
+                    "name": args.name,
+                    "host": args.host,
+                    "firmware": fw,
+                },
+                indent=2,
+            )
+        )
 
     # Now run the real extraction.
     certs = materialize_pairing(serial, passphrase=args.disk_passphrase)
@@ -155,7 +172,9 @@ async def _run(args: argparse.Namespace) -> int:
     print(f"  Areas     : {len(inv.areas)}")
     print(f"  Devices   : {len(inv.devices)}")
     print(f"  Zones     : {len(inv.zones)}")
-    print(f"  Buttons   : {sum(len(bg.Buttons or []) for bgs in inv.button_group_expansions.values() for bg in bgs)}")
+    print(
+        f"  Buttons   : {sum(len(bg.Buttons or []) for bgs in inv.button_group_expansions.values() for bg in bgs)}"
+    )
     print(f"  PMs       : {len(inv.programming_models)}")
     print(f"  Presets   : {len(inv.presets)}")
     print(f"  Duration  : {inv.duration_seconds:.1f}s")
@@ -173,19 +192,31 @@ async def _run(args: argparse.Namespace) -> int:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Live-validate the backend against a real RA3")
+    p = argparse.ArgumentParser(
+        description="Live-validate the backend against a real RA3"
+    )
     p.add_argument("--host", required=True, help="processor IP")
-    p.add_argument("--certs-dir", required=True, help="dir holding caseta.key/crt + caseta-bridge.crt")
+    p.add_argument(
+        "--certs-dir",
+        required=True,
+        help="dir holding caseta.key/crt + caseta-bridge.crt",
+    )
     p.add_argument("--name", default="Default", help="profile display name")
     p.add_argument(
         "--disk-passphrase",
         default=None,
         help="passphrase for encrypted on-disk credential storage when Keychain is unavailable",
     )
-    p.add_argument("--capture-raw", action="store_true",
-                   help="include the raw LEAP responses in the snapshot (large)")
-    p.add_argument("--save-example", default=None,
-                   help="if set, write a sanitized copy of the snapshot here")
+    p.add_argument(
+        "--capture-raw",
+        action="store_true",
+        help="include the raw LEAP responses in the snapshot (large)",
+    )
+    p.add_argument(
+        "--save-example",
+        default=None,
+        help="if set, write a sanitized copy of the snapshot here",
+    )
     return p.parse_args()
 
 

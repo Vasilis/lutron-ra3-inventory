@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from ...config import Config
 from ...storage import keychain
-from ...storage.certs import has_pairing_on_disk
-from ...storage.paths import profile_json_path, profiles_dir
+from ...storage.certs import has_encrypted_pairing, has_plain_pairing
+from ...storage.paths import profile_dir, profile_json_path, profiles_dir
 from ..deps import get_config, session_dependency
 from ..dto import ProfileSummary
 
@@ -21,7 +21,7 @@ _LOG = logging.getLogger(__name__)
 
 
 @router.get("", response_model=list[ProfileSummary])
-async def list_profiles() -> list[ProfileSummary]:
+async def list_profiles(cfg: Config = Depends(get_config)) -> list[ProfileSummary]:
     """List every saved profile."""
     root = profiles_dir()
     if not root.exists():
@@ -44,6 +44,15 @@ async def list_profiles() -> list[ProfileSummary]:
             parsed_last_seen = datetime.fromisoformat(last_seen) if last_seen else None
         except (TypeError, ValueError):
             parsed_last_seen = None
+        keychain_creds = keychain.is_available() and keychain.load_pairing(serial) is not None
+        if keychain_creds:
+            credential_storage = "keychain"
+        elif has_encrypted_pairing(serial):
+            credential_storage = "encrypted_disk"
+        elif has_plain_pairing(serial):
+            credential_storage = "plain_disk"
+        else:
+            credential_storage = "none"
         out.append(
             ProfileSummary(
                 serial=serial,
@@ -51,8 +60,9 @@ async def list_profiles() -> list[ProfileSummary]:
                 host=meta.get("host", "?"),
                 last_seen=parsed_last_seen,
                 firmware=meta.get("firmware"),
-                has_certs=has_pairing_on_disk(serial)
-                or (keychain.is_available() and keychain.load_pairing(serial) is not None),
+                has_certs=credential_storage != "none",
+                credential_storage=credential_storage,
+                active=serial == cfg.active_profile_serial,
             )
         )
     return out
@@ -61,7 +71,11 @@ async def list_profiles() -> list[ProfileSummary]:
 @router.post("/{serial}/activate", status_code=status.HTTP_204_NO_CONTENT)
 async def activate_profile(serial: str, cfg: Config = Depends(get_config)) -> None:
     """Set the active profile, used by ``/inventory`` and ``/export`` routes."""
-    if not (profiles_dir() / serial).is_dir():
+    try:
+        root = profile_dir(serial)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    if not root.is_dir():
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"no profile {serial}")
     cfg.active_profile_serial = serial
     cfg.save()
@@ -72,7 +86,10 @@ async def delete_profile(serial: str, cfg: Config = Depends(get_config)) -> None
     """Remove a profile and revoke its keychain creds."""
     import shutil
 
-    profile_root = profiles_dir() / serial
+    try:
+        profile_root = profile_dir(serial)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     if not profile_root.exists():
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"no profile {serial}")
     keychain.delete_pairing(serial)

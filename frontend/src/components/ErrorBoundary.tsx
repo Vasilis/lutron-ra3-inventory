@@ -33,8 +33,8 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
           <div className="mx-auto flex max-w-2xl flex-col gap-4">
             <h1 className="text-xl font-semibold">Something went wrong</h1>
             <p className="text-sm text-muted-foreground">
-              The app hit a runtime error. Copy the details below and share
-              them with the maintainer.
+              The app hit a runtime error. Copy the details below and share them
+              with the maintainer.
             </p>
             <pre className="overflow-x-auto rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs">
               {this.state.error.message}

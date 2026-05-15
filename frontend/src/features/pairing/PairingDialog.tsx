@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 interface PairingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPaired?: (serial: string) => void;
+  onPaired?: (serial: string, diskPassphrase?: string) => void;
 }
 
 type Status =
@@ -48,8 +48,9 @@ export function PairingDialog({
   onPaired,
 }: PairingDialogProps) {
   const qc = useQueryClient();
-  const [host, setHost] = useState("192.168.1.184");
+  const [host, setHost] = useState("");
   const [name, setName] = useState("Home");
+  const [diskPassphrase, setDiskPassphrase] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "form" });
   const subscriptionRef = useRef<SseSubscription | null>(null);
 
@@ -73,7 +74,11 @@ export function PairingDialog({
   const startPairing = async () => {
     setStatus({ kind: "starting" });
     try {
-      const { pair_id } = await api.startPairing(host, name);
+      const { pair_id } = await api.startPairing(
+        host,
+        name,
+        diskPassphrase.trim() || undefined,
+      );
       subscriptionRef.current = subscribeSse<PairEvent>({
         url: pairEventsUrl(pair_id),
         onEvent: (event) => {
@@ -89,7 +94,7 @@ export function PairingDialog({
             subscriptionRef.current?.close();
             subscriptionRef.current = null;
             qc.invalidateQueries({ queryKey: ["profiles"] });
-            onPaired?.(event.serial);
+            onPaired?.(event.serial, diskPassphrase.trim() || undefined);
           } else if (event.phase === "error" || event.phase === "timeout") {
             setStatus({
               kind: "error",
@@ -155,6 +160,22 @@ export function PairingDialog({
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t("pair.name_placeholder")}
               />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pair-passphrase">
+                {t("pair.passphrase_label")}
+              </Label>
+              <Input
+                id="pair-passphrase"
+                type="password"
+                value={diskPassphrase}
+                onChange={(e) => setDiskPassphrase(e.target.value)}
+                placeholder={t("pair.passphrase_placeholder")}
+                autoComplete="new-password"
+              />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {t("pair.passphrase_help")}
+              </p>
             </div>
             {status.kind === "error" && (
               <ErrorBanner message={status.message} />

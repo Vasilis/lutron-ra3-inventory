@@ -1,6 +1,12 @@
 import { useMemo } from "react";
 import { useState } from "react";
-import { ArrowUpCircle, ChevronDown, ChevronRight, Loader2, RefreshCw } from "lucide-react";
+import {
+  ArrowUpCircle,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppStore } from "@/stores/app-store";
@@ -147,9 +153,7 @@ export function DeviceList({
                   {g.devices.map((d, i) => (
                     <div
                       key={d.href}
-                      className={cn(
-                        i > 0 && "border-t border-border/60",
-                      )}
+                      className={cn(i > 0 && "border-t border-border/60")}
                     >
                       <DeviceRow
                         device={d}
@@ -186,7 +190,9 @@ function ZoneInlineList({ zones }: { zones: Zone[] }) {
             key={z.href}
             className="flex items-center justify-between gap-3 px-2 py-1 text-xs"
           >
-            <span className="truncate font-medium">{z.Name ?? "(unnamed)"}</span>
+            <span className="truncate font-medium">
+              {z.Name ?? "(unnamed)"}
+            </span>
             <span className="shrink-0 text-muted-foreground">
               {z.ControlType ?? ""}
             </span>

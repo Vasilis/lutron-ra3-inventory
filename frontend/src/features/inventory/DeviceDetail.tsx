@@ -103,11 +103,12 @@ export function DeviceDetail({
             </div>
             <div className="text-xs text-foreground/80">
               Installed <code className="font-mono">{update.installed}</code>
-              {" → "}available <code className="font-mono">{update.available}</code>
+              {" → "}available{" "}
+              <code className="font-mono">{update.available}</code>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              This app doesn't push firmware updates — initiate them from
-              Lutron Designer or the official Lutron app.
+              This app doesn't push firmware updates — initiate them from Lutron
+              Designer or the official Lutron app.
             </p>
           </div>
         )}

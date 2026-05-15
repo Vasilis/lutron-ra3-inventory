@@ -98,3 +98,17 @@ export function deviceDisplayName(
 export function hasPositionName(device: Device): boolean {
   return device.Name ? POSITION_PATTERN.test(device.Name) : false;
 }
+
+/**
+ * Extract the numeric position from a Lutron ``Position N`` name. Used as
+ * the tertiary sort key so multiple dimmers/keypads in the same gang sort
+ * 1 → 2 → 3 → 10 rather than the lexicographic 1 → 10 → 2.
+ *
+ * Returns ``Number.MAX_SAFE_INTEGER`` for devices with no position name —
+ * keeps named devices sorted after their numbered siblings.
+ */
+export function devicePositionNumber(device: Device): number {
+  if (!device.Name) return Number.MAX_SAFE_INTEGER;
+  const m = device.Name.match(/^Position\s+(\d+)$/i);
+  return m ? Number.parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+}

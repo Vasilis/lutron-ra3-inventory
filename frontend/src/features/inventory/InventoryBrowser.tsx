@@ -10,7 +10,7 @@ import { ApiError } from "@/lib/api";
 import { AreaTree } from "./AreaTree";
 import { DeviceList } from "./DeviceList";
 import { DeviceDetail } from "./DeviceDetail";
-import { deviceDisplayName } from "./helpers";
+import { deviceDisplayName, devicePositionNumber } from "./helpers";
 
 interface InventoryBrowserProps {
   onExtract: () => void;
@@ -110,13 +110,24 @@ export function InventoryBrowser({
     selectedAreaHref ? (devicesByArea.get(selectedAreaHref) ?? []) : inv.devices
   )
     .slice()
-    .sort((a, b) =>
-      deviceDisplayName(a, areasByHref).localeCompare(
+    .sort((a, b) => {
+      // 1. Group by display name (area name for "Position N" devices,
+      //    real name otherwise).
+      const nameCmp = deviceDisplayName(a, areasByHref).localeCompare(
         deviceDisplayName(b, areasByHref),
         undefined,
         { sensitivity: "base", numeric: true },
-      ),
-    );
+      );
+      if (nameCmp !== 0) return nameCmp;
+      // 2. Cluster by device type within the same display name —
+      //    keypads next to keypads, dimmers next to dimmers, shades
+      //    next to shades, all in the same area's block.
+      const typeCmp = a.DeviceType.localeCompare(b.DeviceType);
+      if (typeCmp !== 0) return typeCmp;
+      // 3. Order by numeric position within a gang so "Position 2"
+      //    comes before "Position 10", not after "Position 1".
+      return devicePositionNumber(a) - devicePositionNumber(b);
+    });
   const selectedDevice = selectedDeviceHref
     ? (inv.devices.find((d) => d.href === selectedDeviceHref) ??
       (inv.processor.href === selectedDeviceHref ? inv.processor : null))

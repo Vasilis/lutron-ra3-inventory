@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Download, FileCode, FileSpreadsheet, FileText } from "lucide-react";
+import {
+  Check,
+  ClipboardCopy,
+  Download,
+  FileCode,
+  FileSpreadsheet,
+  FileText,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -101,15 +109,20 @@ const FORMAT_META: Record<
  *  - "Download" triggers a same-origin GET, which the FastAPI route
  *    returns with Content-Disposition: attachment
  */
+type Status =
+  | { kind: "idle" }
+  | { kind: "downloading" }
+  | { kind: "copying" }
+  | { kind: "copied" }
+  | { kind: "error"; message: string };
+
 export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
   const [format, setFormat] = useState<Format>("markdown");
-  // Default to recovery essentials. "All" / "None" buttons let users
-  // expand or narrow further; the Verbose toggle adds back the full
-  // LEAP-fidelity columns to whatever sections are selected.
   const [selectedSections, setSelectedSections] = useState<Set<string>>(
     new Set(RECOVERY_DEFAULT_SECTIONS),
   );
   const [verbose, setVerbose] = useState(false);
+  const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const meta = FORMAT_META[format];
   const allSelected = selectedSections.size === SECTIONS.length;
@@ -128,27 +141,86 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
     setSelectedSections(on ? new Set(ALL_SECTION_KEYS) : new Set());
   };
 
-  const download = () => {
+  /** Build the export URL with the current options applied. */
+  const buildUrl = (): string => {
     const token = getSessionToken();
     const params = new URLSearchParams();
     if (token) params.set("token", token);
     if (meta.supportsSections && !allSelected) {
-      // Backend honors ?sections=a,b,c — only set when we're filtering.
       params.set("sections", Array.from(selectedSections).join(","));
     }
     if (meta.supportsSections && verbose) {
       params.set("verbose", "true");
     }
-    const url = `${meta.path}?${params.toString()}`;
-    // Trigger a hidden anchor download — browsers honor Content-Disposition.
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = meta.filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    onOpenChange(false);
+    return `${meta.path}?${params.toString()}`;
   };
+
+  /**
+   * Fetch the export body and trigger a download via a Blob URL.
+   *
+   * The previous "create an <a download>" approach pointed the anchor at
+   * the backend URL directly. PyWebView's WKWebView treated that as a
+   * navigation, opening a content-only window with no back button. Going
+   * through fetch → blob → blob: URL keeps everything in the React app:
+   * the response is consumed in JS, the synthetic click then triggers a
+   * save against a local Blob URL which doesn't navigate the webview.
+   */
+  const download = async () => {
+    setStatus({ kind: "downloading" });
+    try {
+      const resp = await fetch(buildUrl());
+      if (!resp.ok) {
+        throw new Error(`${resp.status} ${resp.statusText}`);
+      }
+      const blob = await resp.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = meta.filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Give the browser a moment to start the save before releasing the
+      // URL — some webviews need the URL alive until the dialog appears.
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 5_000);
+      setStatus({ kind: "idle" });
+      onOpenChange(false);
+    } catch (err) {
+      setStatus({
+        kind: "error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
+  /**
+   * "Copy to clipboard" — only meaningful for text formats (Markdown,
+   * JSON). Hidden for CSV-zip and XLSX which are binary.
+   */
+  const copyToClipboard = async () => {
+    setStatus({ kind: "copying" });
+    try {
+      const resp = await fetch(buildUrl());
+      if (!resp.ok) {
+        throw new Error(`${resp.status} ${resp.statusText}`);
+      }
+      const text = await resp.text();
+      await navigator.clipboard.writeText(text);
+      setStatus({ kind: "copied" });
+      window.setTimeout(() => {
+        setStatus((cur) => (cur.kind === "copied" ? { kind: "idle" } : cur));
+      }, 2_000);
+    } catch (err) {
+      setStatus({
+        kind: "error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
+  const isTextFormat = format === "markdown" || format === "json";
+  const busy = status.kind === "downloading" || status.kind === "copying";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -237,16 +309,56 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
           </section>
         )}
 
+        {status.kind === "error" && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
+            <span className="font-medium text-destructive">Export failed:</span>{" "}
+            <span className="text-foreground/80">{status.message}</span>
+          </div>
+        )}
+
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
             {t("common.cancel")}
           </Button>
+          {isTextFormat && (
+            <Button
+              variant="outline"
+              onClick={copyToClipboard}
+              disabled={busy || (meta.supportsSections && noneSelected)}
+            >
+              {status.kind === "copied" ? (
+                <>
+                  <Check className="size-4" />
+                  {t("export.copied")}
+                </>
+              ) : status.kind === "copying" ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  {t("export.copying")}
+                </>
+              ) : (
+                <>
+                  <ClipboardCopy className="size-4" />
+                  {t("export.copy")}
+                </>
+              )}
+            </Button>
+          )}
           <Button
             onClick={download}
-            disabled={meta.supportsSections && noneSelected}
+            disabled={busy || (meta.supportsSections && noneSelected)}
           >
-            <Download className="size-4" />
-            {t("export.download")}
+            {status.kind === "downloading" ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                {t("export.downloading")}
+              </>
+            ) : (
+              <>
+                <Download className="size-4" />
+                {t("export.download")}
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

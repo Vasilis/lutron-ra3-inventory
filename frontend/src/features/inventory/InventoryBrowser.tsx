@@ -10,6 +10,7 @@ import { ApiError } from "@/lib/api";
 import { AreaTree } from "./AreaTree";
 import { DeviceList } from "./DeviceList";
 import { DeviceDetail } from "./DeviceDetail";
+import { deviceDisplayName } from "./helpers";
 
 interface InventoryBrowserProps {
   onExtract: () => void;
@@ -105,9 +106,17 @@ export function InventoryBrowser({
   }
 
   const inv = inventory.data;
-  const visibleDevices = selectedAreaHref
-    ? (devicesByArea.get(selectedAreaHref) ?? [])
-    : inv.devices;
+  const visibleDevices = (
+    selectedAreaHref ? (devicesByArea.get(selectedAreaHref) ?? []) : inv.devices
+  )
+    .slice()
+    .sort((a, b) =>
+      deviceDisplayName(a, areasByHref).localeCompare(
+        deviceDisplayName(b, areasByHref),
+        undefined,
+        { sensitivity: "base", numeric: true },
+      ),
+    );
   const selectedDevice = selectedDeviceHref
     ? (inv.devices.find((d) => d.href === selectedDeviceHref) ??
       (inv.processor.href === selectedDeviceHref ? inv.processor : null))

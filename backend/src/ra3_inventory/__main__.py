@@ -84,6 +84,72 @@ def _start_backend(cfg: Config) -> tuple[uvicorn.Server, threading.Thread, int]:
     return server, thread, port
 
 
+class JsApi:
+    """Bridge functions exposed to JavaScript as ``window.pywebview.api.*``.
+
+    These exist because two web-platform features that the React frontend
+    needs are blocked in the embedded WKWebView:
+
+    - **Downloads.** ``<a download>`` is treated as a navigation, with no
+      back button, so it can't be used to save an export to disk.
+    - **Clipboard.** ``navigator.clipboard.writeText`` requires permissions
+      that the default WKWebView config in PyWebView doesn't grant.
+
+    Routing through Python sidesteps both: ``save_file`` opens a real
+    Cocoa save panel and writes bytes; ``copy_text`` puts a string on
+    the NSPasteboard.
+    """
+
+    def __init__(self) -> None:
+        self._window = None
+
+    def bind_window(self, window) -> None:
+        """Called once after ``create_window``."""
+        self._window = window
+
+    def save_file(self, filename: str, content_b64: str) -> dict:
+        """Open a native Save panel, write ``content_b64`` (base64-decoded)
+        to the chosen path. Returns ``{ok, path, error}``."""
+        import base64
+
+        if self._window is None:
+            return {"ok": False, "error": "no active window"}
+        import webview
+
+        try:
+            result = self._window.create_file_dialog(
+                webview.SAVE_DIALOG,
+                save_filename=filename,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": repr(exc)}
+        if not result:
+            return {"ok": False, "error": "cancelled"}
+
+        path = result if isinstance(result, str) else result[0]
+        try:
+            data = base64.b64decode(content_b64)
+            from pathlib import Path
+
+            Path(path).write_bytes(data)
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": repr(exc)}
+        return {"ok": True, "path": str(path)}
+
+    def copy_text(self, text: str) -> dict:
+        """Put ``text`` on the system clipboard. macOS NSPasteboard."""
+        try:
+            # Lazy import — only needed when the frontend asks for a copy.
+            from AppKit import NSPasteboard  # type: ignore[import-not-found]
+
+            pb = NSPasteboard.generalPasteboard()
+            pb.clearContents()
+            pb.setString_forType_(text, "public.utf8-plain-text")
+            return {"ok": True}
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": repr(exc)}
+
+
 def main() -> int:
     configure_logging()
     cfg = Config.load()
@@ -112,13 +178,21 @@ def main() -> int:
             _LOG.info("Interrupted")
         return 0
 
+    # JS bridge exposed as ``window.pywebview.api.*`` — gives the frontend
+    # a way to trigger a native save dialog (downloads via ``<a download>``
+    # don't work reliably in WKWebView) and to write text to the system
+    # clipboard (the JS clipboard API requires permissions WKWebView
+    # doesn't grant by default).
+    js_api = JsApi()
     window = webview.create_window(
         title="RA3 Inventory",
         url=url,
         width=1280,
         height=820,
         min_size=(960, 640),
+        js_api=js_api,
     )
+    js_api.bind_window(window)
 
     def _on_closed() -> None:
         _LOG.info("Window closed — shutting down backend")

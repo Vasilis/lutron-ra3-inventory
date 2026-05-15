@@ -112,3 +112,48 @@ export function devicePositionNumber(device: Device): number {
   const m = device.Name.match(/^Position\s+(\d+)$/i);
   return m ? Number.parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
 }
+
+export interface DeviceGroup {
+  /** Stable React key for the group. */
+  key: string;
+  /** All devices in the group, in their already-sorted order. */
+  devices: Device[];
+  /** Display name of the group (area name for "Position N" runs). */
+  displayName: string;
+  /** Shared DeviceType. */
+  deviceType: string;
+}
+
+/**
+ * Cluster adjacent devices that share the same display name + DeviceType
+ * into a single group. Used by the device list so the visual treatment
+ * of a multi-gang set of dimmers (or keypads, shades, etc.) is a thin
+ * border around the run rather than a bare succession of identical-
+ * looking rows.
+ *
+ * Expects ``devices`` to be already sorted — see InventoryBrowser's
+ * three-level sort (name → type → position). Two devices with the same
+ * (displayName, deviceType) but separated by an unrelated device in
+ * between will form *two* groups, not one.
+ */
+export function groupAdjacentDevices(
+  devices: Device[],
+  areasByHref: Map<string, Area>,
+): DeviceGroup[] {
+  const out: DeviceGroup[] = [];
+  for (const d of devices) {
+    const displayName = deviceDisplayName(d, areasByHref);
+    const last = out[out.length - 1];
+    if (last && last.displayName === displayName && last.deviceType === d.DeviceType) {
+      last.devices.push(d);
+    } else {
+      out.push({
+        key: `${displayName}__${d.DeviceType}__${d.href}`,
+        devices: [d],
+        displayName,
+        deviceType: d.DeviceType,
+      });
+    }
+  }
+  return out;
+}

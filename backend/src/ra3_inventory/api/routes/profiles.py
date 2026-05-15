@@ -58,6 +58,15 @@ async def list_profiles() -> list[ProfileSummary]:
     return out
 
 
+@router.post("/{serial}/activate", status_code=status.HTTP_204_NO_CONTENT)
+async def activate_profile(serial: str, cfg: Config = Depends(get_config)) -> None:
+    """Set the active profile, used by ``/inventory`` and ``/export`` routes."""
+    if not (profiles_dir() / serial).is_dir():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no profile {serial}")
+    cfg.active_profile_serial = serial
+    cfg.save()
+
+
 @router.delete("/{serial}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_profile(serial: str, cfg: Config = Depends(get_config)) -> None:
     """Remove a profile and revoke its keychain creds."""

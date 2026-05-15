@@ -46,7 +46,7 @@ See [`docs/leap-protocol-notes.md`](docs/leap-protocol-notes.md) for the verifie
 
 ```
 backend/         FastAPI + LEAP extractor + PyWebView entry
-frontend/        reserved for the upcoming React UI (not implemented yet)
+frontend/        React 18 + Vite UI
 docs/            protocol notes + legacy scripts
 examples/        sanitized sample snapshot (no real serials/MACs)
 scripts/         live-validation + snapshot-sanitizing helpers
@@ -55,7 +55,7 @@ scripts/         live-validation + snapshot-sanitizing helpers
 
 ## Development
 
-Requirements today: macOS and Python 3.10+.
+Requirements today: macOS, Python 3.10+, and Node.js/npm for frontend work.
 
 ```bash
 # Backend
@@ -68,9 +68,15 @@ pytest
 # Optional: validate against a live processor with existing certs
 cd ..
 python scripts/validate-live.py --host 192.0.2.1 --certs-dir /path/to/lutron_certs
+
+# Frontend
+cd frontend
+npm install
+npm run dev
 ```
 
-The future frontend will add Node-based setup instructions once it exists.
+The Vite dev server proxies API calls to `http://127.0.0.1:8000` by default.
+Set `VITE_BACKEND_URL` when your local backend is running elsewhere.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for coding standards and PR workflow.
 

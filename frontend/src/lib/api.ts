@@ -65,33 +65,46 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await resp.text()) as unknown as T;
 }
 
+import type { ProcessorInventory, ProfileSummary } from "@/lib/types";
+
 export const api = {
   health: () => request<{ status: string; version: string }>("/health"),
   version: () =>
     request<{ app_version: string; schema_version: number }>("/version"),
-  listProfiles: () =>
-    request<
-      Array<{
-        serial: string;
-        name: string;
-        host: string;
-        last_seen: string | null;
-        firmware: string | null;
-        has_certs: boolean;
-      }>
-    >("/profiles"),
-  startPairing: (host: string, name: string) =>
+  listProfiles: () => request<ProfileSummary[]>("/profiles"),
+  activateProfile: (serial: string) =>
+    request<void>(`/profiles/${encodeURIComponent(serial)}/activate`, {
+      method: "POST",
+    }),
+  deleteProfile: (serial: string) =>
+    request<void>(`/profiles/${encodeURIComponent(serial)}`, {
+      method: "DELETE",
+    }),
+  startPairing: (host: string, name: string, disk_passphrase?: string) =>
     request<{ pair_id: string }>("/pair/start", {
       method: "POST",
-      body: JSON.stringify({ host, name }),
+      body: JSON.stringify({ host, name, disk_passphrase }),
     }),
-  startExtraction: (profile_serial: string, capture_raw = false) =>
+  startExtraction: (
+    profile_serial: string,
+    capture_raw = false,
+    disk_passphrase?: string,
+  ) =>
     request<{ extract_id: string }>("/extract", {
       method: "POST",
-      body: JSON.stringify({ profile_serial, capture_raw }),
+      body: JSON.stringify({ profile_serial, capture_raw, disk_passphrase }),
     }),
-  getInventory: () => request<unknown>("/inventory"),
+  getInventory: () => request<ProcessorInventory>("/inventory"),
 };
+
+/** Build an SSE URL that subscribeSse() can consume. */
+export function pairEventsUrl(pairId: string): string {
+  return `/pair/events?pair_id=${encodeURIComponent(pairId)}`;
+}
+
+export function extractEventsUrl(extractId: string): string {
+  return `/extract/events?extract_id=${encodeURIComponent(extractId)}`;
+}
 
 export function getSessionToken(): string | null {
   return getToken();

@@ -39,7 +39,7 @@ export function AppShell({ left, center, right, children }: AppShellProps) {
         </div>
         <div className="flex items-center gap-3">
           <BackendStatus />
-          <Button variant="ghost" size="icon" aria-label="Settings">
+          <Button variant="ghost" size="icon" aria-label={t("settings.label")}>
             <Settings className="size-4" />
           </Button>
         </div>

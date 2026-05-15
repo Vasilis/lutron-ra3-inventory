@@ -91,9 +91,27 @@ jobs:
       - name: Install build deps
         working-directory: backend
         run: python -m pip install -e ".[build]"
+
+      # pywebview depends on proxy_tools, which is published as an sdist
+      # only (no wheel on PyPI). Briefcase invokes pip with
+      # ``--only-binary :all:`` to keep app bundling reproducible, so it
+      # rejects the sdist and the whole resolution fails. Build proxy_tools
+      # to a universal ``py3-none-any`` wheel up front and point pip at it
+      # via ``PIP_FIND_LINKS``. Briefcase's subprocesses inherit our env,
+      # so the find-links applies to its private pip invocation too.
+      - name: Pre-build proxy_tools wheel (no upstream wheel on PyPI)
+        run: |
+          mkdir -p "${{ github.workspace }}/wheels"
+          python -m pip wheel proxy-tools -w "${{ github.workspace }}/wheels"
+          ls "${{ github.workspace }}/wheels"
+
       - name: Briefcase create
         working-directory: backend
+        env:
+          PIP_FIND_LINKS: ${{ github.workspace }}/wheels
         run: briefcase create macOS --no-input
       - name: Briefcase build
         working-directory: backend
+        env:
+          PIP_FIND_LINKS: ${{ github.workspace }}/wheels
         run: briefcase build macOS --no-input

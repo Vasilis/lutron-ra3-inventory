@@ -92,7 +92,7 @@ Only **one** LEAP client can be connected to a processor at a time. If you also 
 
 - Private keys are stored in the macOS Keychain by default; when Keychain is unavailable, the backend requires a passphrase for the Fernet + scrypt encrypted on-disk fallback.
 - LEAP traffic is TLS, but the processor's CA is self-signed by Lutron — that's why we pin the bridge cert alongside our client cert.
-- Snapshots may contain device serials, MAC addresses, and network info. The default export to JSON/CSV/XLSX includes these; use the "sanitized" export option to strip them before sharing.
+- Snapshots may contain device serials, MAC addresses, and network info. The default export to JSON/CSV/XLSX includes these; use `?sanitized=true` on export endpoints or `scripts/sanitize-snapshot.py` before sharing a snapshot publicly.
 
 ## License
 

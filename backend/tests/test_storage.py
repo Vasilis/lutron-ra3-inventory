@@ -15,7 +15,9 @@ from ra3_inventory.storage.certs import (
 )
 from ra3_inventory.storage.paths import certs_dir
 from ra3_inventory.storage.snapshots import (
+    delete_snapshot,
     list_snapshots,
+    prune_snapshots,
     read_baseline,
     set_baseline,
     write_snapshot,
@@ -104,3 +106,37 @@ def test_snapshot_filename_validation_blocks_traversal(monkeypatch, tmp_path: Pa
         except ValueError:
             continue
         raise AssertionError(f"expected {filename!r} to be rejected")
+
+
+def test_delete_snapshot_rejects_latest_or_baseline(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("ra3_inventory.storage.paths.app_data_dir", lambda: tmp_path)
+    base = datetime(2026, 5, 15, 12, 0, tzinfo=timezone.utc)
+    first = write_snapshot("abc", _inventory(extracted_at=base, host="first"))
+    second = write_snapshot("abc", _inventory(extracted_at=base.replace(minute=1), host="second"))
+    set_baseline("abc", first.name)
+
+    for filename in (first.name, second.name):
+        try:
+            delete_snapshot("abc", filename)
+        except ValueError:
+            continue
+        raise AssertionError(f"expected {filename!r} to be protected")
+
+
+def test_prune_snapshots_preserves_newest_latest_and_baseline(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("ra3_inventory.storage.paths.app_data_dir", lambda: tmp_path)
+    base = datetime(2026, 5, 15, 12, 0, tzinfo=timezone.utc)
+    first = write_snapshot("abc", _inventory(extracted_at=base, host="first"))
+    second = write_snapshot("abc", _inventory(extracted_at=base.replace(minute=1), host="second"))
+    third = write_snapshot("abc", _inventory(extracted_at=base.replace(minute=2), host="third"))
+    fourth = write_snapshot("abc", _inventory(extracted_at=base.replace(minute=3), host="fourth"))
+    set_baseline("abc", first.name)
+
+    deleted = prune_snapshots("abc", keep=2)
+
+    assert deleted == [second.name]
+    assert {summary.filename for summary in list_snapshots("abc")} == {
+        first.name,
+        third.name,
+        fourth.name,
+    }

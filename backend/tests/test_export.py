@@ -14,6 +14,7 @@ from ra3_inventory.models import (
     DeviceFirmwareImage,
     FirmwareInfo,
     HrefRef,
+    NetworkInterface,
     ProcessorInventory,
     Project,
     RadioRa3Processor,
@@ -146,3 +147,20 @@ def test_xlsx_export_is_loadable() -> None:
     action_col = headers.index("Action")
     actions = [r[action_col] for r in rows[1:]]
     assert any("dim(Kitchen Island)=80" in str(a) for a in actions)
+
+
+def test_sanitize_inventory_redacts_identifiers_without_mutating_original() -> None:
+    from ra3_inventory.sanitize import sanitize_inventory
+
+    inv = _make_inventory()
+    inv.processor.NetworkInterfaces = [NetworkInterface(MACAddress="AA:BB:CC:DD:EE:FF")]
+
+    sanitized = sanitize_inventory(inv)
+
+    assert sanitized.host == "192.0.2.1"
+    assert sanitized.processor.SerialNumber is None
+    assert sanitized.processor.Name == "Processor"
+    assert sanitized.project.Name == "RA3 Inventory Demo Project"
+    assert sanitized.areas[0].Name == "Area 1"
+    assert inv.processor.SerialNumber == 42
+    assert inv.areas[0].Name == "House"

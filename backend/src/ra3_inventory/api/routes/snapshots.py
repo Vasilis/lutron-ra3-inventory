@@ -5,9 +5,16 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, status
 
 from ...models import ProcessorInventory
-from ...storage import list_snapshots, read_snapshot, set_baseline, snapshot_path
+from ...storage import (
+    delete_snapshot,
+    list_snapshots,
+    prune_snapshots,
+    read_snapshot,
+    set_baseline,
+    snapshot_path,
+)
 from ..deps import ActiveSerialDep, session_dependency
-from ..dto import SetBaselineRequest, SnapshotEntry
+from ..dto import PruneSnapshotsRequest, PruneSnapshotsResponse, SetBaselineRequest, SnapshotEntry
 
 router = APIRouter(prefix="/snapshots", tags=["snapshots"], dependencies=[session_dependency])
 
@@ -47,3 +54,19 @@ async def pin_baseline(serial: ActiveSerialDep, body: SetBaselineRequest) -> Non
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     except FileNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+
+@router.delete("/{filename}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_one(serial: ActiveSerialDep, filename: str) -> None:
+    try:
+        delete_snapshot(serial, filename)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+
+@router.post("/prune", response_model=PruneSnapshotsResponse)
+async def prune(serial: ActiveSerialDep, body: PruneSnapshotsRequest) -> PruneSnapshotsResponse:
+    deleted = prune_snapshots(serial, body.keep)
+    return PruneSnapshotsResponse(deleted=deleted)

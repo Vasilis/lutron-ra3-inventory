@@ -81,6 +81,14 @@ class SetBaselineRequest(RA3Model):
     filename: str
 
 
+class PruneSnapshotsRequest(RA3Model):
+    keep: int = Field(ge=1)
+
+
+class PruneSnapshotsResponse(RA3Model):
+    deleted: list[str]
+
+
 # ---- System ---------------------------------------------------------------
 
 

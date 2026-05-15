@@ -13,7 +13,9 @@ from .keychain import KeychainUnavailableError
 from .paths import APP_NAME, app_data_dir, ensure_profile_tree, profile_dir
 from .snapshots import (
     SnapshotSummary,
+    delete_snapshot,
     list_snapshots,
+    prune_snapshots,
     read_baseline,
     read_latest,
     read_snapshot,
@@ -29,6 +31,7 @@ __all__ = [
     "SnapshotSummary",
     "app_data_dir",
     "certs",
+    "delete_snapshot",
     "ensure_profile_tree",
     "has_encrypted_pairing",
     "has_pairing_on_disk",
@@ -39,6 +42,7 @@ __all__ = [
     "materialize_pairing",
     "paths",
     "profile_dir",
+    "prune_snapshots",
     "read_baseline",
     "read_latest",
     "read_snapshot",

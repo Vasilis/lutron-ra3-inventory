@@ -140,6 +140,41 @@ def set_baseline(serial: str, source_filename: str) -> Path:
     return dst
 
 
+def delete_snapshot(serial: str, filename: str) -> None:
+    """Delete one immutable snapshot unless it is currently pinned."""
+    path = snapshot_path(serial, filename)
+    if not path.exists():
+        raise FileNotFoundError(f"Snapshot {filename} not found for profile {serial}")
+
+    latest = latest_snapshot_path(serial)
+    baseline = baseline_snapshot_path(serial)
+    if latest.exists() and path.samefile(latest):
+        raise ValueError("cannot delete latest snapshot")
+    if baseline.exists() and path.samefile(baseline):
+        raise ValueError("cannot delete baseline snapshot")
+    path.unlink()
+
+
+def prune_snapshots(serial: str, keep: int) -> list[str]:
+    """Delete old unpinned snapshots, preserving the newest ``keep`` plus pins."""
+    if keep < 1:
+        raise ValueError("keep must be >= 1")
+
+    snapshots = list_snapshots(serial)
+    protected = {summary.filename for summary in snapshots[:keep]}
+    protected.update(
+        summary.filename for summary in snapshots if summary.is_latest or summary.is_baseline
+    )
+
+    deleted: list[str] = []
+    for summary in snapshots:
+        if summary.filename in protected:
+            continue
+        delete_snapshot(serial, summary.filename)
+        deleted.append(summary.filename)
+    return deleted
+
+
 def list_snapshots(serial: str) -> list[SnapshotSummary]:
     """Return summaries of every snapshot for a profile, newest first."""
     snap_dir = snapshots_dir(serial)

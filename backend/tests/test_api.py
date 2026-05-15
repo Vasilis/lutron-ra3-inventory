@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -10,8 +11,10 @@ from fastapi.testclient import TestClient
 
 from ra3_inventory.api import create_app
 from ra3_inventory.config import Config
+from ra3_inventory.models import ProcessorInventory, Project, RadioRa3Processor
 from ra3_inventory.storage.certs import store_pairing_to_disk
 from ra3_inventory.storage.paths import ensure_profile_tree, profile_json_path
+from ra3_inventory.storage.snapshots import write_snapshot
 
 
 @pytest.fixture
@@ -133,3 +136,54 @@ def test_snapshot_routes_reject_reserved_or_traversal_names(monkeypatch, tmp_pat
 
     assert reserved.status_code == 400
     assert traversal.status_code == 400
+
+
+def _snapshot(*, extracted_at: datetime, host: str) -> ProcessorInventory:
+    return ProcessorInventory(
+        extracted_at=extracted_at,
+        source="fixture",
+        host=host,
+        duration_seconds=0,
+        processor=RadioRa3Processor(
+            href="/device/1",
+            Name="Processor",
+            DeviceType="RadioRa3Processor",
+            SerialNumber="serial",
+        ),
+        project=Project(href="/project", Name="Project"),
+    )
+
+
+def test_sanitized_export_route_redacts_json(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("ra3_inventory.storage.paths.app_data_dir", lambda: tmp_path)
+    write_snapshot("abc", _snapshot(extracted_at=datetime.now(timezone.utc), host="10.0.0.1"))
+    cfg = Config(active_profile_serial="abc", session_token="test-token")
+    client = TestClient(create_app(cfg))
+
+    resp = client.get("/export/json?sanitized=true", headers={"X-RA3-Token": cfg.session_token})
+
+    assert resp.status_code == 200
+    assert resp.headers["content-disposition"] == 'attachment; filename="inventory-sanitized.json"'
+    body = resp.json()
+    assert body["host"] == "192.0.2.1"
+    assert body["processor"]["SerialNumber"] is None
+
+
+def test_snapshot_delete_and_prune_routes(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("ra3_inventory.storage.paths.app_data_dir", lambda: tmp_path)
+    base = datetime(2026, 5, 15, 12, 0, tzinfo=timezone.utc)
+    first = write_snapshot("abc", _snapshot(extracted_at=base, host="first"))
+    second = write_snapshot("abc", _snapshot(extracted_at=base.replace(minute=1), host="second"))
+    third = write_snapshot("abc", _snapshot(extracted_at=base.replace(minute=2), host="third"))
+    cfg = Config(active_profile_serial="abc", session_token="test-token")
+    client = TestClient(create_app(cfg))
+    headers = {"X-RA3-Token": cfg.session_token}
+
+    protected = client.delete(f"/snapshots/{third.name}", headers=headers)
+    deleted = client.delete(f"/snapshots/{first.name}", headers=headers)
+    pruned = client.post("/snapshots/prune", headers=headers, json={"keep": 1})
+
+    assert protected.status_code == 409
+    assert deleted.status_code == 204
+    assert pruned.status_code == 200
+    assert pruned.json()["deleted"] == [second.name]

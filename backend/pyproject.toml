@@ -1,0 +1,202 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ra3-inventory"
+dynamic = ["version"]
+description = "Browse and export a Lutron RadioRA 3 inventory over LEAP — areas, devices, zones, keypads, shades, firmware, full button programming."
+readme = "../README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+keywords = ["lutron", "radiora3", "homeworks", "leap", "smart-home", "lighting"]
+authors = [{ name = "lutron-ra3-inventory contributors" }]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: MacOS X",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Home Automation",
+]
+
+dependencies = [
+    "fastapi >= 0.115.0",
+    "uvicorn[standard] >= 0.30.0",
+    "pydantic >= 2.8.0",
+    "pywebview >= 5.3.0",
+    "pyobjc-core >= 10.3; sys_platform == 'darwin'",
+    "pyobjc-framework-Cocoa >= 10.3; sys_platform == 'darwin'",
+    "pyobjc-framework-Security >= 10.3; sys_platform == 'darwin'",
+    "pyobjc-framework-WebKit >= 10.3; sys_platform == 'darwin'",
+    "keyring >= 25.0.0",
+    "cryptography >= 42.0.0",
+    "httpx >= 0.27.0",
+    "openpyxl >= 3.1.0",
+    "sse-starlette >= 2.1.0",
+    "orjson >= 3.10.0",
+    "async-timeout >= 4.0.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest >= 8.0.0",
+    "pytest-asyncio >= 0.23.0",
+    "pytest-cov >= 5.0.0",
+    "ruff >= 0.6.0",
+    "httpx >= 0.27.0",  # for FastAPI TestClient
+    "respx >= 0.21.0",  # for mocking httpx in tests
+]
+build = [
+    "briefcase >= 0.3.20",
+]
+
+[project.scripts]
+ra3-inventory = "ra3_inventory.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/REPLACE/lutron-ra3-inventory"
+Issues = "https://github.com/REPLACE/lutron-ra3-inventory/issues"
+Changelog = "https://github.com/REPLACE/lutron-ra3-inventory/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "src/ra3_inventory/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ra3_inventory"]
+
+# -----------------------------------------------------------------------------
+# Briefcase — macOS .app packaging
+# https://briefcase.readthedocs.io/
+# -----------------------------------------------------------------------------
+
+[tool.briefcase]
+project_name = "RA3 Inventory"
+bundle = "com.ra3inventory"
+version = "0.1.0"
+url = "https://github.com/REPLACE/lutron-ra3-inventory"
+license.file = "../LICENSE"
+author = "lutron-ra3-inventory contributors"
+author_email = "noreply@example.com"
+
+[tool.briefcase.app.ra3-inventory]
+formal_name = "RA3 Inventory"
+description = "Browse a Lutron RadioRA 3 inventory."
+long_description = """\
+A polished desktop app for browsing, snapshotting, and exporting a Lutron \
+RadioRA 3 inventory over the LEAP protocol. Preserves the raw field set the \
+processor reports — shade SKUs, firmware versions, full keypad button \
+programming, area scenes, and timeclock event rules — that the high-level \
+community library discards.
+"""
+icon = "../docs/icon"
+sources = ["src/ra3_inventory"]
+test_sources = ["tests"]
+
+requires = [
+    "fastapi >= 0.115.0",
+    "uvicorn[standard] >= 0.30.0",
+    "pydantic >= 2.8.0",
+    "pywebview >= 5.3.0",
+    "keyring >= 25.0.0",
+    "cryptography >= 42.0.0",
+    "httpx >= 0.27.0",
+    "openpyxl >= 3.1.0",
+    "sse-starlette >= 2.1.0",
+    "orjson >= 3.10.0",
+]
+
+test_requires = [
+    "pytest >= 8.0.0",
+    "pytest-asyncio >= 0.23.0",
+]
+
+[tool.briefcase.app.ra3-inventory.macOS]
+universal_build = true
+min_os_version = "12.0"
+requires = [
+    "pyobjc-core >= 10.3",
+    "pyobjc-framework-Cocoa >= 10.3",
+    "pyobjc-framework-Security >= 10.3",
+    "pyobjc-framework-WebKit >= 10.3",
+]
+
+# Entitlements: explicitly grant outbound TLS to the processor.
+# Briefcase's default entitlement set is permissive for the CPython runtime
+# (allow-unsigned-executable-memory, disable-library-validation) but omits
+# network.client — we add it here.
+entitlement."com.apple.security.network.client" = true
+
+# Info.plist additions
+info."NSAppSleepDisabled" = false  # we connect-per-extraction, not long-lived
+info."NSHumanReadableCopyright" = "Copyright © 2026 lutron-ra3-inventory contributors. Apache-2.0."
+
+# -----------------------------------------------------------------------------
+# Ruff — lint + format
+# -----------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src"]
+extend-exclude = ["build", "dist", "docs/legacy"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "UP",    # pyupgrade
+    "ASYNC", # flake8-async
+    "S",     # flake8-bandit
+    "ARG",   # unused arguments
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific
+]
+ignore = [
+    "E501",  # line too long — handled by formatter
+    "S101",  # use of assert — fine in tests
+    "B008",  # function call in default arg — common FastAPI pattern (Depends(), Query())
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "ARG"]
+"src/ra3_inventory/leap/assets.py" = ["E501"]  # PEM blobs are intentionally long
+"src/ra3_inventory/leap/{pairing,protocol,messages,utils,errors,_const,transport,__init__}.py" = [
+    # Vendored from pylutron-caseta — keep upstream-compatible style
+    "UP",
+    "SIM",
+    "ARG",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ra3_inventory"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# -----------------------------------------------------------------------------
+# Pytest
+# -----------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+]
+filterwarnings = [
+    "error",
+    # Suppress known DeprecationWarnings from third-party libs as they appear
+]

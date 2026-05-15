@@ -4,7 +4,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppStore } from "@/stores/app-store";
 import { cn } from "@/lib/utils";
 import type { Area, Device } from "@/lib/types";
-import { areaPath, firmwareUpdate } from "@/features/inventory/helpers";
+import {
+  areaPath,
+  deviceDisplayName,
+  firmwareUpdate,
+  hasPositionName,
+} from "@/features/inventory/helpers";
 import { deviceCategoryIcon } from "@/features/inventory/icons";
 import { t } from "@/i18n";
 
@@ -88,6 +93,8 @@ export function DeviceList({
               const active = selected === d.href;
               const Icon = deviceCategoryIcon(d.DeviceType);
               const update = firmwareUpdate(d.FirmwareImage);
+              const title = deviceDisplayName(d, areasByHref);
+              const positionTag = hasPositionName(d) ? d.Name : null;
               return (
                 <li key={d.href}>
                   <button
@@ -103,7 +110,12 @@ export function DeviceList({
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col">
                       <span className="flex items-center gap-2 truncate text-sm font-medium">
-                        {d.Name ?? d.DeviceType}
+                        {title}
+                        {positionTag && (
+                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
+                            {positionTag}
+                          </span>
+                        )}
                         {update && (
                           <span
                             className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-500"

@@ -35,19 +35,30 @@ async def export_markdown(
     inv: LatestInventoryDep,
     sanitized: bool = False,
     sections: str | None = None,
+    verbose: bool = False,
 ) -> Response:
     """Render Markdown.
 
-    ``sections``: optional comma-separated list of section keys (see
-    ``backend/src/ra3_inventory/export/markdown_export.py:SECTION_KEYS``).
-    When supplied, only those sections are emitted; when absent, all
-    sections are included (legacy behavior).
+    Args:
+        sanitized: redact host / serials / MACs / area names before rendering.
+        sections: optional comma-separated list of section keys (see
+            ``markdown_export.SECTION_KEYS``). When ``None``, all sections.
+        verbose: when ``True``, emit the full LEAP fidelity (every column,
+            href, action-chain). Default ``False`` emits a recovery-focused
+            subset — name / type / model / serial / firmware for devices,
+            name / control type / device for zones, button engravings only
+            for keypads. The recovery output is intentionally compact:
+            just enough to factory-reset and re-address everything.
     """
     section_set: set[str] | None = None
     if sections is not None:
         section_set = {s.strip() for s in sections.split(",") if s.strip()}
 
-    body = to_markdown(_selected_inventory(inv, sanitized), sections=section_set).encode("utf-8")
+    body = to_markdown(
+        _selected_inventory(inv, sanitized),
+        sections=section_set,
+        verbose=verbose,
+    ).encode("utf-8")
     return Response(
         content=body,
         media_type="text/markdown; charset=utf-8",

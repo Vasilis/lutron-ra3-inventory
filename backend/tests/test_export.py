@@ -110,16 +110,32 @@ def test_json_export_round_trips() -> None:
     assert restored.zones[0].Name == "Kitchen Island"
 
 
-def test_markdown_export_contains_button_action() -> None:
+def test_markdown_default_is_recovery_essentials() -> None:
+    """Default Markdown is the slim 'factory reset recovery' shape: no
+    button-programming action chain, no hrefs in the device table."""
     inv = _make_inventory()
     md = to_markdown(inv)
-    # Header sections present
     assert md.startswith("# Lutron Inventory")
     assert "## Processor" in md
     assert "## Areas" in md
     assert "## Zones" in md
+    # Recovery keypad heading is engravings-only, not programming.
+    assert "## Keypads — Button Engravings" in md
+    assert "## Keypads — Buttons & Programming" not in md
+    # Engraving labels are inlined per keypad row.
+    assert "Bright" in md
+    # The full PM action chain is intentionally omitted in recovery mode.
+    assert "dim(Kitchen Island)=80" not in md
+    # Devices table columns: Name / Type / Model / Serial / Firmware — no href.
+    assert "| Name | Type | Model | Serial | Firmware |" in md
+
+
+def test_markdown_verbose_emits_full_button_programming() -> None:
+    """``verbose=True`` brings back the original full LEAP detail, including
+    the resolved button-action chain."""
+    inv = _make_inventory()
+    md = to_markdown(inv, verbose=True)
     assert "## Keypads — Buttons & Programming" in md
-    # Resolved button action shows up with zone name + level
     assert "dim(Kitchen Island)=80" in md
 
 

@@ -50,7 +50,8 @@ def test_fixture_markdown_has_real_structure(live_inventory: ProcessorInventory)
     assert "## Summary" in md
     assert "## Areas" in md
     assert "## Zones" in md
-    assert "## Keypads — Buttons & Programming" in md
+    # Recovery-essentials default uses the engravings heading.
+    assert "## Keypads — Button Engravings" in md
 
     # The buttons-from-expansions count should be > 0 even though the bulk
     # /button endpoint is empty on newer firmware.

@@ -8,6 +8,7 @@ diff for users moving from the standalone script is minimal.
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 
 from ..models import (
@@ -75,14 +76,45 @@ in the report.
 """
 
 
+_POSITION_RE = re.compile(r"^Position\s+\d+$", re.IGNORECASE)
+
+
+def _position_display_name(d: Device, areas_by_href: dict[str, "Area"]) -> str:
+    """Substitute the parent area's name when ``Device.Name`` is ``Position N``.
+
+    Mirrors the frontend's ``deviceDisplayName`` so live UI and exported
+    reports use the same label.
+    """
+    raw = d.Name or d.DeviceType
+    if not _POSITION_RE.match(raw):
+        return raw
+    if d.AssociatedArea is not None and d.AssociatedArea.href in areas_by_href:
+        area_name = areas_by_href[d.AssociatedArea.href].Name
+        if area_name:
+            return area_name
+    return raw
+
+
 def to_markdown(
     inv: ProcessorInventory,
     sections: set[str] | None = None,
+    *,
+    verbose: bool = False,
 ) -> str:
     """Build a human-readable Markdown report for one ProcessorInventory.
 
-    ``sections``: optional set of keys from :data:`SECTION_KEYS` to include.
-    ``None`` (the default) means *all* sections. Unknown keys are ignored.
+    Args:
+        sections: optional set of keys from :data:`SECTION_KEYS` to include.
+            ``None`` (the default) means *all* sections. Unknown keys are
+            ignored.
+        verbose: when ``True`` emit the full RA3 LEAP detail (every column,
+            href, AddressedState, full button action chain). When ``False``
+            (the default) emit a recovery-focused subset — just enough that
+            you could rebuild the project from scratch after a factory
+            reset. Device tables drop href / AddressedState / LocalZones /
+            ButtonGroups columns; zones drop href / Category; keypad
+            sections collapse to per-button engravings rather than the full
+            programming-model breakdown.
     """
     selected = set(SECTION_KEYS) if sections is None else (sections & set(SECTION_KEYS))
 
@@ -111,7 +143,9 @@ def to_markdown(
         lines.append("")
 
     if "processor" not in selected:
-        return _emit_remaining_sections(lines, inv, areas_by_href, zones_by_href, selected)
+        return _emit_remaining_sections(
+            lines, inv, areas_by_href, zones_by_href, selected, verbose
+        )
 
     # Processor
     p = inv.processor
@@ -123,17 +157,21 @@ def to_markdown(
     lines.append("")
     lines.append("| Field | Value |")
     lines.append("|---|---|")
-    lines.append(f"| href | `{p.href}` |")
+    if verbose:
+        lines.append(f"| href | `{p.href}` |")
     lines.append(f"| Name | {p.Name or '?'} |")
     lines.append(f"| DeviceType | `{p.DeviceType}` |")
     lines.append(f"| ModelNumber | {p.ModelNumber or '?'} |")
     lines.append(f"| SerialNumber | {p.SerialNumber or '?'} |")
     lines.append(f"| Firmware | {_firmware_display(p)} |")
     lines.append(f"| MAC | {mac or '?'} |")
-    lines.append(f"| AddressedState | {p.AddressedState or '?'} |")
+    if verbose:
+        lines.append(f"| AddressedState | {p.AddressedState or '?'} |")
     lines.append("")
 
-    return _emit_remaining_sections(lines, inv, areas_by_href, zones_by_href, selected)
+    return _emit_remaining_sections(
+        lines, inv, areas_by_href, zones_by_href, selected, verbose
+    )
 
 
 def _emit_remaining_sections(
@@ -142,6 +180,7 @@ def _emit_remaining_sections(
     areas_by_href: dict[str, "Area"],
     zones_by_href: dict[str, "Zone"],
     selected: set[str],
+    verbose: bool,
 ) -> str:
     """Emit every section after Processor. Split out so the Processor block
     can short-circuit if it's deselected."""
@@ -197,59 +236,100 @@ def _emit_remaining_sections(
             ahref = d.AssociatedArea.href if d.AssociatedArea is not None else None
             by_area[ahref].append(d)
 
-            lines.append("## Devices by Area (full fields)")
+        lines.append("## Devices by Area" + (" (full fields)" if verbose else ""))
         lines.append("")
         for ahref in sorted(by_area.keys(), key=lambda h: area_path(h, areas_by_href) if h else "zzz"):
             label = area_path(ahref, areas_by_href) if ahref else "_(unassigned)_"
             lines.append(f"### {label}")
             lines.append("")
-            lines.append(
-                "| href | Name | DeviceType | ModelNumber | SerialNumber | "
-                "Firmware | Addressed | LocalZones | ButtonGroups |"
-            )
-            lines.append("|---|---|---|---|---|---|---|---|---|")
-            for d in sorted(by_area[ahref], key=lambda x: (x.DeviceType, x.Name or "")):
-                lz = ", ".join(_href_id(r.href) for r in d.LocalZones) or "_(none)_"
-                bg = ", ".join(_href_id(r.href) for r in d.ButtonGroups) or "_(none)_"
+            if verbose:
                 lines.append(
-                    f"| `{d.href}` | {d.Name or '?'} | `{d.DeviceType}` | "
-                    f"{d.ModelNumber or '_(none)_'} | {d.SerialNumber or '_(none)_'} | "
-                    f"{_firmware_display(d)} | {d.AddressedState or '?'} | {lz} | {bg} |"
+                    "| href | Name | DeviceType | ModelNumber | SerialNumber | "
+                    "Firmware | Addressed | LocalZones | ButtonGroups |"
                 )
+                lines.append("|---|---|---|---|---|---|---|---|---|")
+                for d in sorted(by_area[ahref], key=lambda x: (x.DeviceType, x.Name or "")):
+                    lz = ", ".join(_href_id(r.href) for r in d.LocalZones) or "_(none)_"
+                    bg = ", ".join(_href_id(r.href) for r in d.ButtonGroups) or "_(none)_"
+                    lines.append(
+                        f"| `{d.href}` | {d.Name or '?'} | `{d.DeviceType}` | "
+                        f"{d.ModelNumber or '_(none)_'} | {d.SerialNumber or '_(none)_'} | "
+                        f"{_firmware_display(d)} | {d.AddressedState or '?'} | {lz} | {bg} |"
+                    )
+            else:
+                # Recovery-essentials: just the columns you'd need to
+                # re-address every device after a factory reset.
+                lines.append("| Name | Type | Model | Serial | Firmware |")
+                lines.append("|---|---|---|---|---|")
+                for d in sorted(by_area[ahref], key=lambda x: (x.DeviceType, x.Name or "")):
+                    name = _position_display_name(d, areas_by_href)
+                    if d.Name and _POSITION_RE.match(d.Name) and d.Name != name:
+                        name = f"{name} ({d.Name})"
+                    lines.append(
+                        f"| {name} | {d.DeviceType} | "
+                        f"{d.ModelNumber or '_(none)_'} | "
+                        f"{d.SerialNumber if d.SerialNumber is not None else '_(none)_'} | "
+                        f"{_firmware_display(d)} |"
+                    )
             lines.append("")
 
     if "zones" in selected:
         lines.append("## Zones")
         lines.append("")
-        lines.append("| href | Name | ControlType | Category | Device |")
-        lines.append("|---|---|---|---|---|")
-        for z in sorted(inv.zones, key=lambda z: z.Name or ""):
-            cat = ""
-            if z.Category is not None:
-                cat = f"{z.Category.Type or '?'}/{z.Category.SubType or '?'}"
-            dev_href = z.Device.href if z.Device is not None else ""
-            lines.append(
-                f"| `{z.href}` | {z.Name or '?'} | {z.ControlType or '?'} | {cat} | `{dev_href}` |"
-            )
+        devices_by_href: dict[str, Device] = {d.href: d for d in inv.devices}
+        if verbose:
+            lines.append("| href | Name | ControlType | Category | Device |")
+            lines.append("|---|---|---|---|---|")
+            for z in sorted(inv.zones, key=lambda z: z.Name or ""):
+                cat = ""
+                if z.Category is not None:
+                    cat = f"{z.Category.Type or '?'}/{z.Category.SubType or '?'}"
+                dev_href = z.Device.href if z.Device is not None else ""
+                lines.append(
+                    f"| `{z.href}` | {z.Name or '?'} | {z.ControlType or '?'} | "
+                    f"{cat} | `{dev_href}` |"
+                )
+        else:
+            lines.append("| Zone | Control type | Controlling device |")
+            lines.append("|---|---|---|")
+            for z in sorted(inv.zones, key=lambda z: z.Name or ""):
+                ctrl = z.ControlType or "?"
+                dev_label = ""
+                if z.Device is not None and z.Device.href in devices_by_href:
+                    dev_label = _position_display_name(
+                        devices_by_href[z.Device.href], areas_by_href
+                    )
+                lines.append(f"| {z.Name or '?'} | {ctrl} | {dev_label or '?'} |")
         lines.append("")
 
     if "keypads" in selected:
-        lines.append("## Keypads — Buttons & Programming")
+        if verbose:
+            lines.append("## Keypads — Buttons & Programming")
+            lines.append("")
+            lines.append(
+                "_For each keypad/pico/remote: every button with its engraving "
+                "and what it does._"
+            )
+        else:
+            lines.append("## Keypads — Button Engravings")
+            lines.append("")
+            lines.append(
+                "_The button labels you'll need to recreate after a factory "
+                "reset. Re-program each button's actions in Lutron Designer._"
+            )
         lines.append("")
-        lines.append("_For each keypad/pico/remote: every button with its engraving and what it does._")
-        lines.append("")
-        devices_by_href: dict[str, Device] = {d.href: d for d in inv.devices}
+        devices_by_href2: dict[str, Device] = {d.href: d for d in inv.devices}
 
         if not inv.button_group_expansions:
             lines.append("_No keypad button data captured._")
             lines.append("")
-        else:
+        elif verbose:
             for dhref, bgs in sorted(inv.button_group_expansions.items()):
-                d = devices_by_href.get(dhref)
+                d = devices_by_href2.get(dhref)
                 if d is None:
                     continue
                 ahref = d.AssociatedArea.href if d.AssociatedArea is not None else None
-                lines.append(f"### {d.Name or '?'} — `{dhref}`")
+                lines.append(f"### {_position_display_name(d, areas_by_href)} — `{dhref}`")
                 lines.append(
                     f"_{d.DeviceType} {d.ModelNumber or ''} · "
                     f"Area: {area_path(ahref, areas_by_href) if ahref else '?'} · "
@@ -271,6 +351,34 @@ def _emit_remaining_sections(
                             f"{action} |"
                         )
                 lines.append("")
+        else:
+            # Recovery-essentials: one row per keypad with comma-separated
+            # button labels. No href, no per-button table, no PM action chain
+            # (which on RA3 26.x isn't reachable over LEAP anyway).
+            lines.append("| Keypad | Area | Model | Button engravings |")
+            lines.append("|---|---|---|---|")
+            for dhref, bgs in sorted(inv.button_group_expansions.items()):
+                d = devices_by_href2.get(dhref)
+                if d is None:
+                    continue
+                labels: list[str] = []
+                for bg in bgs:
+                    for btn in bg.Buttons or []:
+                        eng_text = btn.Engraving.Text if btn.Engraving is not None else None
+                        label = eng_text or btn.Name or "?"
+                        # Engravings can contain newlines (multi-line wall
+                        # plate labels). Inline them in the recovery table
+                        # so the row stays on one line.
+                        label = " ".join(label.split())
+                        labels.append(f"{btn.ButtonNumber or '?'}={label}")
+                ahref = d.AssociatedArea.href if d.AssociatedArea is not None else None
+                area_label = area_path(ahref, areas_by_href) if ahref else "?"
+                lines.append(
+                    f"| {_position_display_name(d, areas_by_href)} | "
+                    f"{area_label} | {d.ModelNumber or '_(none)_'} | "
+                    f"{', '.join(labels) if labels else '_(none)_'} |"
+                )
+            lines.append("")
 
     if "virtual_buttons" in selected and inv.virtual_buttons:
         lines.append("## Virtual Buttons (timeclock / scene targets)")

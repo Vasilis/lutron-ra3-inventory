@@ -1,9 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Blinds,
   Box,
   Cpu,
   Fan,
-  Layers,
   Lightbulb,
   Plug,
   Power,
@@ -109,7 +109,7 @@ export function deviceCategoryIcon(deviceType: string): LucideIcon {
     return Lightbulb;
   if ((SWITCH_TYPES as readonly string[]).includes(deviceType)) return Power;
   if ((FAN_TYPES as readonly string[]).includes(deviceType)) return Fan;
-  if ((SHADE_TYPES as readonly string[]).includes(deviceType)) return Layers;
+  if ((SHADE_TYPES as readonly string[]).includes(deviceType)) return Blinds;
   if ((SENSOR_TYPES as readonly string[]).includes(deviceType))
     return Thermometer;
   if ((LAMP_TYPES as readonly string[]).includes(deviceType)) return Sun;

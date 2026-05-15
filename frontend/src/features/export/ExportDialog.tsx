@@ -44,6 +44,21 @@ const SECTIONS: SectionDef[] = [
 
 const ALL_SECTION_KEYS = new Set(SECTIONS.map((s) => s.key));
 
+/**
+ * Default Markdown selection: the sections you'd want if you were
+ * recovering from a factory reset. Skips the summary tables (counts,
+ * device-type rollups) and the timeclock / virtual-button / area-scene
+ * blocks that aren't reachable on RA3 firmware 26.x anyway.
+ */
+const RECOVERY_DEFAULT_SECTIONS = new Set([
+  "header",
+  "processor",
+  "areas",
+  "devices",
+  "zones",
+  "keypads",
+]);
+
 const FORMAT_META: Record<
   Format,
   { label: string; icon: typeof FileText; path: string; filename: string; supportsSections: boolean }
@@ -88,9 +103,13 @@ const FORMAT_META: Record<
  */
 export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
   const [format, setFormat] = useState<Format>("markdown");
+  // Default to recovery essentials. "All" / "None" buttons let users
+  // expand or narrow further; the Verbose toggle adds back the full
+  // LEAP-fidelity columns to whatever sections are selected.
   const [selectedSections, setSelectedSections] = useState<Set<string>>(
-    new Set(ALL_SECTION_KEYS),
+    new Set(RECOVERY_DEFAULT_SECTIONS),
   );
+  const [verbose, setVerbose] = useState(false);
 
   const meta = FORMAT_META[format];
   const allSelected = selectedSections.size === SECTIONS.length;
@@ -116,6 +135,9 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
     if (meta.supportsSections && !allSelected) {
       // Backend honors ?sections=a,b,c — only set when we're filtering.
       params.set("sections", Array.from(selectedSections).join(","));
+    }
+    if (meta.supportsSections && verbose) {
+      params.set("verbose", "true");
     }
     const url = `${meta.path}?${params.toString()}`;
     // Trigger a hidden anchor download — browsers honor Content-Disposition.
@@ -197,6 +219,20 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
                   label={t(s.i18nKey)}
                 />
               ))}
+            </div>
+            <div className="mt-2 flex flex-col gap-1 rounded-md bg-muted/40 p-3">
+              <Checkbox
+                checked={verbose}
+                onChange={() => setVerbose((v) => !v)}
+                label={
+                  <span className="flex flex-col">
+                    <span className="font-medium">{t("export.verbose")}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {t("export.verbose_help")}
+                    </span>
+                  </span>
+                }
+              />
             </div>
           </section>
         )}

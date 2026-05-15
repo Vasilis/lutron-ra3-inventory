@@ -3,8 +3,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Area, ButtonGroup, Device, Zone } from "@/lib/types";
 import {
   areaPath,
+  deviceDisplayName,
   firmwareDisplay,
   firmwareUpdate,
+  hasPositionName,
 } from "@/features/inventory/helpers";
 import { deviceCategoryIcon } from "@/features/inventory/icons";
 import { t } from "@/i18n";
@@ -42,6 +44,8 @@ export function DeviceDetail({
   ).filter((z): z is Zone => Boolean(z));
   const buttonGroups = buttonGroupExpansions[device.href];
   const update = firmwareUpdate(device.FirmwareImage);
+  const title = deviceDisplayName(device, areasByHref);
+  const positionTag = hasPositionName(device) ? device.Name : null;
 
   return (
     <ScrollArea className="h-full">
@@ -52,7 +56,12 @@ export function DeviceDetail({
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="flex items-center gap-2 truncate text-lg font-semibold">
-              {device.Name ?? device.DeviceType}
+              {title}
+              {positionTag && (
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
+                  {positionTag}
+                </span>
+              )}
               {update && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-500">
                   <ArrowUpCircle className="size-3" />

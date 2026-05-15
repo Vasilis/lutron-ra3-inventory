@@ -63,10 +63,19 @@ class InstalledDate(BaseModel):
     Utc: str | None = None
 
 
-class FirmwareImage(BaseModel):
-    """``Device.FirmwareImage`` — display name + installation timestamp."""
+class DeviceFirmwareImage(BaseModel):
+    """``Device.FirmwareImage`` — display name + installation timestamp.
+
+    Named ``DeviceFirmwareImage`` (not ``FirmwareImage``) to avoid a name
+    collision with the ``FirmwareImage`` field on ``Device``. See the same
+    pattern note on ``ButtonEngraving``.
+    """
 
     model_config = ConfigDict(extra="allow")
 
     Firmware: FirmwareInfo | None = None
     Installed: InstalledDate | None = None
+
+
+# Backwards-friendly export alias for the historical class name.
+FirmwareImage = DeviceFirmwareImage

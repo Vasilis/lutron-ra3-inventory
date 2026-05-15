@@ -49,3 +49,7 @@ def latest_inventory(
 SessionDep = Annotated[None, Depends(require_session)]
 ActiveSerialDep = Annotated[str, Depends(active_profile_serial)]
 LatestInventoryDep = Annotated[ProcessorInventory, Depends(latest_inventory)]
+
+# Router-level dependency (use in ``APIRouter(dependencies=[...])``). The
+# ``Annotated`` aliases above are only valid as function-parameter types.
+session_dependency = Depends(require_session)

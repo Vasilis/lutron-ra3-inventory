@@ -11,9 +11,9 @@ from ...models import (
     ProcessorInventory,
     Zone,
 )
-from ..deps import LatestInventoryDep, SessionDep
+from ..deps import LatestInventoryDep, session_dependency
 
-router = APIRouter(prefix="/inventory", tags=["inventory"], dependencies=[SessionDep])
+router = APIRouter(prefix="/inventory", tags=["inventory"], dependencies=[session_dependency])
 
 
 @router.get("", response_model=ProcessorInventory)

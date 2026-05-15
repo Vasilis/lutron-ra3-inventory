@@ -7,10 +7,10 @@ from fastapi import APIRouter, HTTPException, status
 from ...models import ProcessorInventory
 from ...storage import list_snapshots, read_snapshot, set_baseline
 from ...storage.paths import snapshots_dir
-from ..deps import ActiveSerialDep, SessionDep
+from ..deps import ActiveSerialDep, session_dependency
 from ..dto import SetBaselineRequest, SnapshotEntry
 
-router = APIRouter(prefix="/snapshots", tags=["snapshots"], dependencies=[SessionDep])
+router = APIRouter(prefix="/snapshots", tags=["snapshots"], dependencies=[session_dependency])
 
 
 @router.get("", response_model=list[SnapshotEntry])

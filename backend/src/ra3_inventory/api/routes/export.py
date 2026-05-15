@@ -6,9 +6,9 @@ from fastapi import APIRouter
 from fastapi.responses import Response
 
 from ...export import to_csv_zip, to_json_bytes, to_markdown, to_xlsx
-from ..deps import LatestInventoryDep, SessionDep
+from ..deps import LatestInventoryDep, session_dependency
 
-router = APIRouter(prefix="/export", tags=["export"], dependencies=[SessionDep])
+router = APIRouter(prefix="/export", tags=["export"], dependencies=[session_dependency])
 
 
 def _content_disposition(filename: str) -> dict[str, str]:

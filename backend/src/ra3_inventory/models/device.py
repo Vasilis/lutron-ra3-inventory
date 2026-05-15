@@ -15,7 +15,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from .base import FirmwareImage, HrefRef, RA3Resource
+from .base import DeviceFirmwareImage, HrefRef, RA3Resource
 
 _LOG = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class Device(RA3Resource):
     SerialNumber: int | str | None = None
     """Sometimes int, sometimes string, sometimes null (firmware-dependent)."""
 
-    FirmwareImage: FirmwareImage | None = None
+    FirmwareImage: DeviceFirmwareImage | None = None
     AssociatedArea: HrefRef | None = None
     AssociatedControlStation: HrefRef | None = None
     LocalZones: list[HrefRef] = []  # noqa: RUF012 — pydantic handles mutability

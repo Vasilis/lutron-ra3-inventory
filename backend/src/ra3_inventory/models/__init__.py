@@ -12,8 +12,16 @@ Two layers:
 """
 
 from .area import Area, area_path
-from .base import FirmwareImage, FirmwareInfo, HrefRef, InstalledDate, RA3Model, RA3Resource
-from .button import Button, ButtonGroup, Engraving, Led
+from .base import (
+    DeviceFirmwareImage,
+    FirmwareImage,
+    FirmwareInfo,
+    HrefRef,
+    InstalledDate,
+    RA3Model,
+    RA3Resource,
+)
+from .button import Button, ButtonEngraving, ButtonGroup, Engraving, Led
 from .controlstation import ControlStation
 from .device import (
     DEVICE_REGISTRY,
@@ -48,10 +56,12 @@ __all__ = [
     "AreaScene",
     "Assignment",
     "Button",
+    "ButtonEngraving",
     "ButtonGroup",
     "ColorLamp",
     "ControlStation",
     "Device",
+    "DeviceFirmwareImage",
     "Dimmer",
     "Engraving",
     "ExtractionEvent",

@@ -19,11 +19,11 @@ from ...storage.paths import (
     ensure_profile_tree,
     profile_json_path,
 )
-from ..deps import SessionDep, get_config
+from ..deps import session_dependency, get_config
 from ..dto import PairStartRequest, PairStartResponse
 from ..events import sse_stream
 
-router = APIRouter(prefix="/pair", tags=["pairing"], dependencies=[SessionDep])
+router = APIRouter(prefix="/pair", tags=["pairing"], dependencies=[session_dependency])
 
 _LOG = logging.getLogger(__name__)
 

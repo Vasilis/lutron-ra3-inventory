@@ -28,11 +28,9 @@ def _write_sheet(ws, headers: list[str], rows: list[list]) -> None:
 
     # Auto-size columns (rough — based on header length and longest row)
     for cidx in range(1, len(headers) + 1):
-        width = max(
-            len(str(headers[cidx - 1])),
-            *(len(str(row[cidx - 1])) for row in rows if len(row) >= cidx),
-            default=10,
-        )
+        candidates = [len(str(headers[cidx - 1]))]
+        candidates.extend(len(str(row[cidx - 1])) for row in rows if len(row) >= cidx)
+        width = max(candidates) if candidates else 10
         ws.column_dimensions[get_column_letter(cidx)].width = min(width + 2, 60)
     ws.freeze_panes = "A2"
 

@@ -14,9 +14,16 @@ class Project(RA3Resource):
     ProductType: str | None = None
     """e.g. 'Lutron RadioRA 3 Project' or 'Lutron Caseta Project'."""
 
-    ProjectModifiedTimestamp: str | None = None
-    """ISO8601-ish string emitted by the processor. Used to detect Designer
-    pushes mid-extraction."""
+    ProjectModifiedTimestamp: str | dict | None = None
+    """The processor returns this in two shapes depending on firmware:
+
+    - A flat ISO8601-ish string, or
+    - A ``{"Year": ..., "Month": ..., "Day": ..., "Hour": ..., "Minute": ...,
+      "Second": ..., "Utc": "0"}`` dict.
+
+    We accept either; the M2 partial-extraction detection just compares
+    equality against a prior reading, so the structural shape doesn't
+    matter as long as both reads agree."""
 
     MasterDeviceList: dict | None = None
     TimeclockEventRules: HrefRef | None = None

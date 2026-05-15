@@ -9,10 +9,10 @@ from fastapi import APIRouter, HTTPException, status
 
 from ...storage import keychain
 from ...storage.paths import cert_paths, profile_json_path, profiles_dir
-from ..deps import SessionDep
+from ..deps import session_dependency
 from ..dto import ProfileSummary
 
-router = APIRouter(prefix="/profiles", tags=["profiles"], dependencies=[SessionDep])
+router = APIRouter(prefix="/profiles", tags=["profiles"], dependencies=[session_dependency])
 
 
 @router.get("", response_model=list[ProfileSummary])

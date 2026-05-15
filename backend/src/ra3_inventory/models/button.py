@@ -7,14 +7,26 @@ from pydantic import BaseModel, ConfigDict
 from .base import HrefRef, RA3Resource
 
 
-class Engraving(BaseModel):
-    """``Button.Engraving`` — the printed/etched label on a keypad button."""
+class ButtonEngraving(BaseModel):
+    """``Button.Engraving`` — the printed/etched label on a keypad button.
+
+    Named ``ButtonEngraving`` (not ``Engraving``) to avoid a name collision
+    with the ``Engraving`` field on ``Button``: when ``from __future__ import
+    annotations`` is on, the field default ``None`` shadows the class name
+    in the class namespace before Pydantic resolves the forward reference.
+    The exported alias ``Engraving = ButtonEngraving`` is kept for callers
+    that import the historical name.
+    """
 
     model_config = ConfigDict(extra="allow")
 
     Text: str | None = None
     Engravable: bool | None = None
     Glyph: str | None = None
+
+
+# Backwards-friendly export alias for the historical class name.
+Engraving = ButtonEngraving
 
 
 class Button(RA3Resource):
@@ -25,7 +37,7 @@ class Button(RA3Resource):
     ButtonType: str | None = None
     """e.g. ``GeneralScene``, ``MultiTap``, ``Toggle``, ``Advanced``."""
 
-    Engraving: Engraving | None = None
+    Engraving: ButtonEngraving | None = None
     Parent: HrefRef | None = None
     AssociatedLED: HrefRef | None = None
     ProgrammingModel: HrefRef | None = None

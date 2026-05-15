@@ -13,11 +13,11 @@ from sse_starlette.sse import EventSourceResponse
 from ...leap import AlreadyConnectedError, extract_inventory
 from ...storage import materialize_pairing, write_snapshot
 from ...storage.paths import profile_json_path
-from ..deps import SessionDep
+from ..deps import session_dependency
 from ..dto import ExtractStartRequest, ExtractStartResponse
 from ..events import sse_stream
 
-router = APIRouter(prefix="/extract", tags=["extraction"], dependencies=[SessionDep])
+router = APIRouter(prefix="/extract", tags=["extraction"], dependencies=[session_dependency])
 
 _LOG = logging.getLogger(__name__)
 

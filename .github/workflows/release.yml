@@ -79,12 +79,18 @@ jobs:
           echo "zip=$zipname" >> "$GITHUB_OUTPUT"
         id: zip
 
-      - name: Upload to GitHub release
+      - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         working-directory: backend
         run: |
           tag="${GITHUB_REF#refs/tags/}"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --title "$tag" \
+              --generate-notes \
+              --verify-tag
+          fi
           gh release upload "$tag" \
             "${{ steps.artifacts.outputs.dmg }}" \
             "${{ steps.zip.outputs.zip }}" \

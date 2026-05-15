@@ -46,13 +46,16 @@ def to_xlsx(inv: ProcessorInventory) -> bytes:
 
     # Summary
     summary = wb.create_sheet("Summary")
+    button_count = len(inv.buttons) or sum(
+        len(bg.Buttons or []) for bgs in inv.button_group_expansions.values() for bg in bgs
+    )
     _write_sheet(
         summary,
         ["Field", "Value"],
         [
             ["Project", inv.project.Name or ""],
             ["ProductType", inv.project.ProductType or ""],
-            ["Project Modified", inv.project.ProjectModifiedTimestamp or ""],
+            ["Project Modified", str(inv.project.ProjectModifiedTimestamp or "")],
             ["Extracted At", inv.extracted_at.isoformat()],
             ["Host", inv.host],
             ["Schema", f"v{inv.schema_version}"],
@@ -61,7 +64,7 @@ def to_xlsx(inv: ProcessorInventory) -> bytes:
             ["Areas", len(inv.areas)],
             ["Devices", len(inv.devices)],
             ["Zones", len(inv.zones)],
-            ["Buttons", len(inv.buttons)],
+            ["Buttons", button_count],
             ["LEDs", len(inv.leds)],
             ["Virtual Buttons", len(inv.virtual_buttons)],
             ["Area Scenes", len(inv.area_scenes)],

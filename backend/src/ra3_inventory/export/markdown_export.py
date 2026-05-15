@@ -23,14 +23,65 @@ from ._resolver import resolve_button_action
 
 
 def _firmware_display(d: Device) -> str:
+    """Return the firmware display name for a device, handling two firmware shapes.
+
+    Older RA 3 firmware (<26.x) put the version at
+    ``FirmwareImage.Firmware.DisplayName``. Newer firmware (26.03.12+) leaves
+    that field ``null`` and moves the version into
+    ``FirmwareImage.Contents[0].OS.Firmware.DisplayName``.
+    """
     fw = d.FirmwareImage
-    if fw is None or fw.Firmware is None or fw.Firmware.DisplayName is None:
+    if fw is None:
         return "_(none)_"
-    return fw.Firmware.DisplayName
+    # Legacy shape
+    if fw.Firmware is not None and fw.Firmware.DisplayName:
+        return fw.Firmware.DisplayName
+    # Newer shape — fields under ``Contents`` are caught by ``extra="allow"``
+    extra = fw.model_extra or {}
+    contents = extra.get("Contents") or []
+    if contents and isinstance(contents, list):
+        first = contents[0]
+        if isinstance(first, dict):
+            os_block = first.get("OS") or {}
+            if isinstance(os_block, dict):
+                fw_block = os_block.get("Firmware") or {}
+                if isinstance(fw_block, dict) and fw_block.get("DisplayName"):
+                    return str(fw_block["DisplayName"])
+    return "_(none)_"
 
 
 def _href_id(href: str | None) -> str:
     return (href or "").rsplit("/", 1)[-1] or ""
+
+
+def _format_timestamp(ts: object) -> str:
+    """Format ``Project.ProjectModifiedTimestamp`` for human display.
+
+    The processor returns this in two shapes:
+      - a flat ISO8601-ish string (older firmware)
+      - a ``{Year, Month, Day, Hour, Minute, Second, Utc}`` dict (26.x+)
+    """
+    if isinstance(ts, dict):
+        try:
+            y = int(ts.get("Year", 0))
+            mo = int(ts.get("Month", 0))
+            da = int(ts.get("Day", 0))
+            h = int(ts.get("Hour", 0))
+            mi = int(ts.get("Minute", 0))
+            s = int(ts.get("Second", 0))
+            return f"{y:04d}-{mo:02d}-{da:02d}T{h:02d}:{mi:02d}:{s:02d}Z"
+        except (TypeError, ValueError):
+            return str(ts)
+    return str(ts)
+
+
+def _count_buttons_in_expansions(inv) -> int:
+    """Total buttons across all expanded button groups."""
+    return sum(
+        len(bg.Buttons or [])
+        for bgs in inv.button_group_expansions.values()
+        for bg in bgs
+    )
 
 
 def to_markdown(inv: ProcessorInventory) -> str:
@@ -44,7 +95,7 @@ def to_markdown(inv: ProcessorInventory) -> str:
     lines.append(f"**Project:** {inv.project.Name or '?'}  ")
     lines.append(f"**ProductType:** `{inv.project.ProductType or '?'}`  ")
     if inv.project.ProjectModifiedTimestamp:
-        lines.append(f"**Project Modified:** {inv.project.ProjectModifiedTimestamp}  ")
+        lines.append(f"**Project Modified:** {_format_timestamp(inv.project.ProjectModifiedTimestamp)}  ")
     lines.append(f"**Extracted at:** {inv.extracted_at.isoformat()}  ")
     lines.append(f"**Schema:** v{inv.schema_version}")
     if inv.partial:
@@ -81,7 +132,10 @@ def to_markdown(inv: ProcessorInventory) -> str:
     lines.append(f"| Areas | {len(inv.areas)} |")
     lines.append(f"| Devices (excl. processor) | {len(inv.devices)} |")
     lines.append(f"| Zones | {len(inv.zones)} |")
-    lines.append(f"| Buttons | {len(inv.buttons)} |")
+    # On newer RA3 firmware the bulk /button endpoint isn't supported; the
+    # real button count lives inside button_group_expansions.
+    button_count = len(inv.buttons) or _count_buttons_in_expansions(inv)
+    lines.append(f"| Buttons | {button_count} |")
     lines.append(f"| LEDs | {len(inv.leds)} |")
     lines.append(f"| Virtual buttons | {len(inv.virtual_buttons)} |")
     lines.append(f"| Area scenes | {len(inv.area_scenes)} |")

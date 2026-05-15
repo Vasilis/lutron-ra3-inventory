@@ -79,6 +79,7 @@ class ExtractionEvent(RA3Model):
         "connecting",
         "toplevel",
         "devices",
+        "zones",
         "buttongroup_expanded",
         "programming_models",
         "presets",

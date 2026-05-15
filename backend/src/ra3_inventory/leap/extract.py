@@ -83,6 +83,37 @@ DEVICE_ENDPOINTS: tuple[str, ...] = (
     "/device?where=IsThisDevice:false",
 )
 
+# DeviceTypes that carry button groups. On older RA 3 firmware each device
+# also exposed a top-level ``ButtonGroups: [{"href": "..."}, ...]`` field, but
+# newer firmware (26.03.12f000+) drops it — keypads are detected by
+# DeviceType instead. We still keep the field-based detection as an OR
+# fallback for older firmwares.
+KEYPAD_DEVICE_TYPES: frozenset[str] = frozenset({
+    "SunnataKeypad",
+    "SunnataHybridKeypad",
+    "SeeTouchKeypad",
+    "SeeTouchHybridKeypad",
+    "SeeTouchTabletopKeypad",
+    "SeeTouchInternational",
+    "GrafikTHybridKeypad",
+    "HomeownerKeypad",
+    "AlisseKeypad",
+    "PalladiomKeypad",
+    "PhantomKeypad",
+    "Pico1Button",
+    "Pico2Button",
+    "Pico2ButtonRaiseLower",
+    "Pico3Button",
+    "Pico3ButtonRaiseLower",
+    "Pico4Button",
+    "Pico4ButtonScene",
+    "Pico4ButtonZone",
+    "Pico4Button2Group",
+    "PaddleSwitchPico",
+    "FourGroupRemote",
+    "CasetaFourGroupRemote",
+})
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -109,6 +140,19 @@ def _first_obj_from_body(body: Any) -> dict | None:
         if isinstance(v, dict):
             return v
     return body
+
+
+def _walk_hrefs(obj: object) -> Iterable[str]:
+    """Yield every string value found under a ``href`` key, recursively."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == "href" and isinstance(v, str):
+                yield v
+            else:
+                yield from _walk_hrefs(v)
+    elif isinstance(obj, list):
+        for item in obj:
+            yield from _walk_hrefs(item)
 
 
 def _raw_response_repr(resp: Response | None) -> dict:
@@ -210,6 +254,19 @@ class InventoryExtractor:
             await self._emit("devices", "Reading device list", progress=0.15)
             processor, devices = await self._fetch_devices()
 
+            # Walk per-zone refs if the bulk /zone read came back empty
+            # (newer RA 3 firmware doesn't support the bulk endpoint).
+            bulk_zones = [
+                Zone.model_validate(z)
+                for z in _list_from_body(toplevel.get("/zone"))
+                if isinstance(z, dict)
+            ]
+            if bulk_zones:
+                resolved_zones = bulk_zones
+            else:
+                await self._emit("zones", "Walking LocalZones references", progress=0.22)
+                resolved_zones = await self._fetch_zones_by_reference(devices)
+
             await self._emit("buttongroup_expanded", "Expanding keypad button groups", progress=0.3)
             bg_expansions = await self._fetch_expanded_buttongroups(devices)
 
@@ -226,6 +283,7 @@ class InventoryExtractor:
                 toplevel=toplevel,
                 processor=processor,
                 devices=devices,
+                resolved_zones=resolved_zones,
                 bg_expansions=bg_expansions,
                 programming_models=programming_models,
                 presets=presets,
@@ -280,7 +338,13 @@ class InventoryExtractor:
         self, devices: Iterable[Device]
     ) -> dict[str, list[ButtonGroup]]:
         out: dict[str, list[ButtonGroup]] = {}
-        targets = [d for d in devices if d.ButtonGroups]
+        # Newer RA 3 firmware (26.03.12+) drops the per-device ButtonGroups
+        # field, so detect keypad-likes by DeviceType too. Either signal
+        # qualifies a device.
+        targets = [
+            d for d in devices
+            if d.ButtonGroups or d.DeviceType in KEYPAD_DEVICE_TYPES
+        ]
         total = len(targets)
         for i, d in enumerate(targets, start=1):
             url = f"{d.href}/buttongroup/expanded"
@@ -323,20 +387,51 @@ class InventoryExtractor:
                 )
         return out
 
+    async def _fetch_zones_by_reference(
+        self, devices: Iterable[Device]
+    ) -> list[Zone]:
+        """Fallback when bare ``/zone`` returns ``not supported`` on newer firmware.
+
+        Walks every ``LocalZones[].href`` across all devices, fetches each
+        ``/zone/{id}`` individually, and returns the union.
+        """
+        hrefs: set[str] = set()
+        for d in devices:
+            for ref in d.LocalZones:
+                if ref.href:
+                    hrefs.add(ref.href)
+
+        out: list[Zone] = []
+        total = len(hrefs)
+        for i, href in enumerate(sorted(hrefs), start=1):
+            body = await self._read(href)
+            obj = _first_obj_from_body(body)
+            if isinstance(obj, dict):
+                out.append(Zone.model_validate(obj))
+            if total:
+                await self._emit(
+                    "zones",
+                    f"{i} of {total} zones",
+                    progress=0.22 + 0.06 * (i / total),
+                )
+        return out
+
     async def _fetch_presets(
         self, programming_models: Iterable[ProgrammingModel]
     ) -> dict[str, Preset]:
+        # Schema variants we've seen in the wild:
+        #   - Legacy:  *OnPresetAssignments[] -> {href: /preset/N}
+        #   - Newer:   AdvancedToggleProperties.{Primary,Secondary}Preset.href
+        #              SingleActionProgrammingModel.Preset.href
+        #              SingleScene{Raise,Lower}ProgrammingModel.Preset.href
+        # Rather than enumerate them, walk every PM dict tree and collect any
+        # value that looks like a ``/preset/...`` href. Robust to future
+        # additions.
         preset_hrefs: set[str] = set()
         for pm in programming_models:
-            for assn_list in (
-                pm.PressOnPresetAssignments,
-                pm.ReleaseOnPresetAssignments,
-                pm.DoubleTapOnPresetAssignments,
-                pm.HoldOnPresetAssignments,
-            ):
-                for ref in assn_list or []:
-                    if ref.href:
-                        preset_hrefs.add(ref.href)
+            for ref in _walk_hrefs(pm.model_dump(by_alias=True)):
+                if ref.startswith("/preset/"):
+                    preset_hrefs.add(ref)
 
         out: dict[str, Preset] = {}
         total = len(preset_hrefs)
@@ -363,6 +458,7 @@ class InventoryExtractor:
         toplevel: dict[str, dict | None],
         processor: RadioRa3Processor,
         devices: list[Device],
+        resolved_zones: list[Zone],
         bg_expansions: dict[str, list[ButtonGroup]],
         programming_models: dict[str, ProgrammingModel],
         presets: dict[str, Preset],
@@ -387,7 +483,7 @@ class InventoryExtractor:
             server=Server.model_validate(server_obj) if server_obj else None,
             areas=[Area.model_validate(a) for a in _list_from_body(toplevel.get("/area")) if isinstance(a, dict)],
             devices=devices,
-            zones=[Zone.model_validate(z) for z in _list_from_body(toplevel.get("/zone")) if isinstance(z, dict)],
+            zones=resolved_zones,
             buttons=[Button.model_validate(b) for b in _list_from_body(toplevel.get("/button")) if isinstance(b, dict)],
             button_groups=[ButtonGroup.model_validate(bg) for bg in _list_from_body(toplevel.get("/buttongroup")) if isinstance(bg, dict)],
             leds=[Led.model_validate(l) for l in _list_from_body(toplevel.get("/led")) if isinstance(l, dict)],

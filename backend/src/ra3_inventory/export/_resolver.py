@@ -42,6 +42,51 @@ def _level_field(assignment: Assignment, field: str) -> object:
     return val
 
 
+def _preset_actions_for_pm(pm: ProgrammingModel) -> list[tuple[str, str]]:
+    """Return ``[(action_label, preset_href), ...]`` for a given PM.
+
+    Handles both the legacy ``*OnPresetAssignments[]`` schema described in the
+    user's brief and the newer RA 3 firmware schemas (26.03+):
+
+    - ``AdvancedToggleProgrammingModel``: ``AdvancedToggleProperties.{Primary,
+      Secondary}Preset.href`` — primary state vs. secondary state of a toggle.
+    - ``SingleActionProgrammingModel``: ``Preset.href`` — a one-shot press.
+    - ``SingleSceneRaiseProgrammingModel`` / ``SingleSceneLowerProgrammingModel``:
+      ``Preset.href`` plus a ``Direction`` field — continuous raise/lower.
+    """
+    out: list[tuple[str, str]] = []
+
+    # Legacy schema
+    for action_attr, action_label in ACTION_KEYS:
+        action_refs = getattr(pm, action_attr, None) or []
+        for ref in action_refs:
+            if ref.href:
+                out.append((action_label, ref.href))
+
+    # Newer schemas live in ``model_extra`` (RA3Resource is extra="allow").
+    extra = pm.model_extra or {}
+    advanced = extra.get("AdvancedToggleProperties")
+    if isinstance(advanced, dict):
+        for state_label, key in (("toggle-primary", "PrimaryPreset"),
+                                 ("toggle-secondary", "SecondaryPreset")):
+            block = advanced.get(key)
+            if isinstance(block, dict) and isinstance(block.get("href"), str):
+                out.append((state_label, block["href"]))
+
+    single_preset = extra.get("Preset")
+    if isinstance(single_preset, dict) and isinstance(single_preset.get("href"), str):
+        pm_type = pm.ProgrammingModelType or ""
+        if "Raise" in pm_type:
+            label = "raise"
+        elif "Lower" in pm_type:
+            label = "lower"
+        else:
+            label = "press"
+        out.append((label, single_preset["href"]))
+
+    return out
+
+
 def resolve_button_action(
     btn: Button,
     programming_models: dict[str, ProgrammingModel],
@@ -52,7 +97,7 @@ def resolve_button_action(
 
     Examples:
         ``SimpleConditional · press:dim(Kitchen Island)=80``
-        ``MultiTap · press:switch(Hallway)=On · double-tap:switch(Hallway)=Off``
+        ``AdvancedToggleProgrammingModel · toggle-primary:dim(Living)=80 · toggle-secondary:dim(Living)=0``
     """
     pm_ref = btn.ProgrammingModel
     if pm_ref is None or not pm_ref.href:
@@ -62,19 +107,17 @@ def resolve_button_action(
         return f"(PM {pm_ref.href} not pulled)"
 
     bits: list[str] = []
-    for action_attr, action_label in ACTION_KEYS:
-        action_refs = getattr(pm, action_attr, None) or []
-        for ref in action_refs:
-            preset = presets.get(ref.href)
-            if preset is None:
-                continue
-            for asn_attr, asn_label, level_field in ASN_KEYS:
-                assignments = getattr(preset, asn_attr, None) or []
-                for asn in assignments:
-                    zhref = asn.AssignableObject.href if asn.AssignableObject is not None else None
-                    zname = _zone_label(zhref, zones)
-                    level = _level_field(asn, level_field)
-                    bits.append(f"{action_label}:{asn_label}({zname})={level}")
+    for action_label, preset_href in _preset_actions_for_pm(pm):
+        preset = presets.get(preset_href)
+        if preset is None:
+            continue
+        for asn_attr, asn_label, level_field in ASN_KEYS:
+            assignments = getattr(preset, asn_attr, None) or []
+            for asn in assignments:
+                zhref = asn.AssignableObject.href if asn.AssignableObject is not None else None
+                zname = _zone_label(zhref, zones)
+                level = _level_field(asn, level_field)
+                bits.append(f"{action_label}:{asn_label}({zname})={level}")
 
     pm_type = pm.ProgrammingModelType or "?"
     if not bits:

@@ -54,29 +54,64 @@ def _count_buttons_in_expansions(inv) -> int:
     return sum(len(bg.Buttons or []) for bgs in inv.button_group_expansions.values() for bg in bgs)
 
 
-def to_markdown(inv: ProcessorInventory) -> str:
-    """Build a human-readable Markdown report for one ProcessorInventory."""
+SECTION_KEYS: tuple[str, ...] = (
+    "header",
+    "processor",
+    "summary",
+    "device_types",
+    "areas",
+    "devices",
+    "zones",
+    "keypads",
+    "virtual_buttons",
+    "area_scenes",
+    "timeclock",
+)
+"""Stable section keys for the Markdown report.
+
+These match the values the frontend's ExportDialog uses for its
+``?sections=...`` query string and the order in which they're rendered
+in the report.
+"""
+
+
+def to_markdown(
+    inv: ProcessorInventory,
+    sections: set[str] | None = None,
+) -> str:
+    """Build a human-readable Markdown report for one ProcessorInventory.
+
+    ``sections``: optional set of keys from :data:`SECTION_KEYS` to include.
+    ``None`` (the default) means *all* sections. Unknown keys are ignored.
+    """
+    selected = set(SECTION_KEYS) if sections is None else (sections & set(SECTION_KEYS))
+
     areas_by_href: dict[str, Area] = {a.href: a for a in inv.areas}
     zones_by_href: dict[str, Zone] = {z.href: z for z in inv.zones}
 
     lines: list[str] = []
-    lines.append(f"# Lutron Inventory — {inv.host}")
-    lines.append("")
-    lines.append(f"**Project:** {inv.project.Name or '?'}  ")
-    lines.append(f"**ProductType:** `{inv.project.ProductType or '?'}`  ")
-    if inv.project.ProjectModifiedTimestamp:
-        lines.append(
-            f"**Project Modified:** {_format_timestamp(inv.project.ProjectModifiedTimestamp)}  "
-        )
-    lines.append(f"**Extracted at:** {inv.extracted_at.isoformat()}  ")
-    lines.append(f"**Schema:** v{inv.schema_version}")
-    if inv.partial:
+
+    if "header" in selected:
+        lines.append(f"# Lutron Inventory — {inv.host}")
         lines.append("")
-        lines.append(
-            "> **Note:** this snapshot is marked `partial=true` — the processor's "
-            "project was modified during extraction."
-        )
-    lines.append("")
+        lines.append(f"**Project:** {inv.project.Name or '?'}  ")
+        lines.append(f"**ProductType:** `{inv.project.ProductType or '?'}`  ")
+        if inv.project.ProjectModifiedTimestamp:
+            lines.append(
+                f"**Project Modified:** {_format_timestamp(inv.project.ProjectModifiedTimestamp)}  "
+            )
+        lines.append(f"**Extracted at:** {inv.extracted_at.isoformat()}  ")
+        lines.append(f"**Schema:** v{inv.schema_version}")
+        if inv.partial:
+            lines.append("")
+            lines.append(
+                "> **Note:** this snapshot is marked `partial=true` — the processor's "
+                "project was modified during extraction."
+            )
+        lines.append("")
+
+    if "processor" not in selected:
+        return _emit_remaining_sections(lines, inv, areas_by_href, zones_by_href, selected)
 
     # Processor
     p = inv.processor
@@ -98,134 +133,146 @@ def to_markdown(inv: ProcessorInventory) -> str:
     lines.append(f"| AddressedState | {p.AddressedState or '?'} |")
     lines.append("")
 
-    # Summary
-    lines.append("## Summary")
-    lines.append("")
-    lines.append("| Category | Count |")
-    lines.append("|---|---:|")
-    lines.append(f"| Areas | {len(inv.areas)} |")
-    lines.append(f"| Devices (excl. processor) | {len(inv.devices)} |")
-    lines.append(f"| Zones | {len(inv.zones)} |")
-    # On newer RA3 firmware the bulk /button endpoint isn't supported; the
-    # real button count lives inside button_group_expansions.
-    button_count = len(inv.buttons) or _count_buttons_in_expansions(inv)
-    lines.append(f"| Buttons | {button_count} |")
-    lines.append(f"| LEDs | {len(inv.leds)} |")
-    lines.append(f"| Virtual buttons | {len(inv.virtual_buttons)} |")
-    lines.append(f"| Area scenes | {len(inv.area_scenes)} |")
-    lines.append(f"| ProgrammingModels resolved | {len(inv.programming_models)} |")
-    lines.append(f"| Presets resolved | {len(inv.presets)} |")
-    lines.append("")
+    return _emit_remaining_sections(lines, inv, areas_by_href, zones_by_href, selected)
 
-    # DeviceType x Model counts
-    type_counts: dict[tuple[str, str], int] = defaultdict(int)
-    for d in inv.devices:
-        type_counts[(d.DeviceType, d.ModelNumber or "_(none)_")] += 1
-    lines.append("## Device Type x Model")
-    lines.append("")
-    lines.append("| Count | DeviceType | ModelNumber |")
-    lines.append("|---:|---|---|")
-    for (t, m), n in sorted(type_counts.items(), key=lambda kv: (-kv[1], kv[0])):
-        lines.append(f"| {n} | `{t}` | {m} |")
-    lines.append("")
 
-    # Areas
-    lines.append("## Areas")
-    lines.append("")
-    lines.append("| href | Name | Parent | Full path |")
-    lines.append("|---|---|---|---|")
-    sorted_areas = sorted(inv.areas, key=lambda a: area_path(a.href, areas_by_href))
-    for a in sorted_areas:
-        phref = a.Parent.href if a.Parent is not None else None
-        lines.append(
-            f"| `{a.href}` | {a.Name or '?'} | `{phref or 'root'}` | "
-            f"{area_path(a.href, areas_by_href)} |"
-        )
-    lines.append("")
+def _emit_remaining_sections(
+    lines: list[str],
+    inv: ProcessorInventory,
+    areas_by_href: dict[str, "Area"],
+    zones_by_href: dict[str, "Zone"],
+    selected: set[str],
+) -> str:
+    """Emit every section after Processor. Split out so the Processor block
+    can short-circuit if it's deselected."""
 
-    # Devices by area
-    by_area: dict[str | None, list[Device]] = defaultdict(list)
-    for d in inv.devices:
-        ahref = d.AssociatedArea.href if d.AssociatedArea is not None else None
-        by_area[ahref].append(d)
-
-    lines.append("## Devices by Area (full fields)")
-    lines.append("")
-    for ahref in sorted(by_area.keys(), key=lambda h: area_path(h, areas_by_href) if h else "zzz"):
-        label = area_path(ahref, areas_by_href) if ahref else "_(unassigned)_"
-        lines.append(f"### {label}")
+    if "summary" in selected:
+        lines.append("## Summary")
         lines.append("")
-        lines.append(
-            "| href | Name | DeviceType | ModelNumber | SerialNumber | "
-            "Firmware | Addressed | LocalZones | ButtonGroups |"
-        )
-        lines.append("|---|---|---|---|---|---|---|---|---|")
-        for d in sorted(by_area[ahref], key=lambda x: (x.DeviceType, x.Name or "")):
-            lz = ", ".join(_href_id(r.href) for r in d.LocalZones) or "_(none)_"
-            bg = ", ".join(_href_id(r.href) for r in d.ButtonGroups) or "_(none)_"
+        lines.append("| Category | Count |")
+        lines.append("|---|---:|")
+        lines.append(f"| Areas | {len(inv.areas)} |")
+        lines.append(f"| Devices (excl. processor) | {len(inv.devices)} |")
+        lines.append(f"| Zones | {len(inv.zones)} |")
+        # On newer RA3 firmware the bulk /button endpoint isn't supported; the
+        # real button count lives inside button_group_expansions.
+        button_count = len(inv.buttons) or _count_buttons_in_expansions(inv)
+        lines.append(f"| Buttons | {button_count} |")
+        lines.append(f"| LEDs | {len(inv.leds)} |")
+        lines.append(f"| Virtual buttons | {len(inv.virtual_buttons)} |")
+        lines.append(f"| Area scenes | {len(inv.area_scenes)} |")
+        lines.append(f"| ProgrammingModels resolved | {len(inv.programming_models)} |")
+        lines.append(f"| Presets resolved | {len(inv.presets)} |")
+        lines.append("")
+
+    if "device_types" in selected:
+        type_counts: dict[tuple[str, str], int] = defaultdict(int)
+        for d in inv.devices:
+            type_counts[(d.DeviceType, d.ModelNumber or "_(none)_")] += 1
+        lines.append("## Device Type x Model")
+        lines.append("")
+        lines.append("| Count | DeviceType | ModelNumber |")
+        lines.append("|---:|---|---|")
+        for (t, m), n in sorted(type_counts.items(), key=lambda kv: (-kv[1], kv[0])):
+            lines.append(f"| {n} | `{t}` | {m} |")
+        lines.append("")
+
+    if "areas" in selected:
+        lines.append("## Areas")
+        lines.append("")
+        lines.append("| href | Name | Parent | Full path |")
+        lines.append("|---|---|---|---|")
+        sorted_areas = sorted(inv.areas, key=lambda a: area_path(a.href, areas_by_href))
+        for a in sorted_areas:
+            phref = a.Parent.href if a.Parent is not None else None
             lines.append(
-                f"| `{d.href}` | {d.Name or '?'} | `{d.DeviceType}` | "
-                f"{d.ModelNumber or '_(none)_'} | {d.SerialNumber or '_(none)_'} | "
-                f"{_firmware_display(d)} | {d.AddressedState or '?'} | {lz} | {bg} |"
+                f"| `{a.href}` | {a.Name or '?'} | `{phref or 'root'}` | "
+                f"{area_path(a.href, areas_by_href)} |"
             )
         lines.append("")
 
-    # Zones
-    lines.append("## Zones")
-    lines.append("")
-    lines.append("| href | Name | ControlType | Category | Device |")
-    lines.append("|---|---|---|---|---|")
-    for z in sorted(inv.zones, key=lambda z: z.Name or ""):
-        cat = ""
-        if z.Category is not None:
-            cat = f"{z.Category.Type or '?'}/{z.Category.SubType or '?'}"
-        dev_href = z.Device.href if z.Device is not None else ""
-        lines.append(
-            f"| `{z.href}` | {z.Name or '?'} | {z.ControlType or '?'} | {cat} | `{dev_href}` |"
-        )
-    lines.append("")
-
-    # Keypads — buttons + resolved actions
-    lines.append("## Keypads — Buttons & Programming")
-    lines.append("")
-    lines.append("_For each keypad/pico/remote: every button with its engraving and what it does._")
-    lines.append("")
-    devices_by_href: dict[str, Device] = {d.href: d for d in inv.devices}
-
-    if not inv.button_group_expansions:
-        lines.append("_No keypad button data captured._")
-        lines.append("")
-    else:
-        for dhref, bgs in sorted(inv.button_group_expansions.items()):
-            d = devices_by_href.get(dhref)
-            if d is None:
-                continue
+    if "devices" in selected:
+        by_area: dict[str | None, list[Device]] = defaultdict(list)
+        for d in inv.devices:
             ahref = d.AssociatedArea.href if d.AssociatedArea is not None else None
-            lines.append(f"### {d.Name or '?'} — `{dhref}`")
-            lines.append(
-                f"_{d.DeviceType} {d.ModelNumber or ''} · "
-                f"Area: {area_path(ahref, areas_by_href) if ahref else '?'} · "
-                f"SN: {d.SerialNumber or '?'}_"
-            )
+            by_area[ahref].append(d)
+
+            lines.append("## Devices by Area (full fields)")
+        lines.append("")
+        for ahref in sorted(by_area.keys(), key=lambda h: area_path(h, areas_by_href) if h else "zzz"):
+            label = area_path(ahref, areas_by_href) if ahref else "_(unassigned)_"
+            lines.append(f"### {label}")
             lines.append("")
-            lines.append("| # | Engraving / Name | ButtonType | Action |")
-            lines.append("|---:|---|---|---|")
-            for bg in bgs:
-                for btn in bg.Buttons or []:
-                    eng_text = btn.Engraving.Text if btn.Engraving is not None else None
-                    action = resolve_button_action(
-                        btn, inv.programming_models, inv.presets, zones_by_href
-                    )
-                    lines.append(
-                        f"| {btn.ButtonNumber or '?'} | "
-                        f"{eng_text or btn.Name or ''} | "
-                        f"`{btn.ButtonType or '?'}` | "
-                        f"{action} |"
-                    )
+            lines.append(
+                "| href | Name | DeviceType | ModelNumber | SerialNumber | "
+                "Firmware | Addressed | LocalZones | ButtonGroups |"
+            )
+            lines.append("|---|---|---|---|---|---|---|---|---|")
+            for d in sorted(by_area[ahref], key=lambda x: (x.DeviceType, x.Name or "")):
+                lz = ", ".join(_href_id(r.href) for r in d.LocalZones) or "_(none)_"
+                bg = ", ".join(_href_id(r.href) for r in d.ButtonGroups) or "_(none)_"
+                lines.append(
+                    f"| `{d.href}` | {d.Name or '?'} | `{d.DeviceType}` | "
+                    f"{d.ModelNumber or '_(none)_'} | {d.SerialNumber or '_(none)_'} | "
+                    f"{_firmware_display(d)} | {d.AddressedState or '?'} | {lz} | {bg} |"
+                )
             lines.append("")
 
-    # Virtual buttons
-    if inv.virtual_buttons:
+    if "zones" in selected:
+        lines.append("## Zones")
+        lines.append("")
+        lines.append("| href | Name | ControlType | Category | Device |")
+        lines.append("|---|---|---|---|---|")
+        for z in sorted(inv.zones, key=lambda z: z.Name or ""):
+            cat = ""
+            if z.Category is not None:
+                cat = f"{z.Category.Type or '?'}/{z.Category.SubType or '?'}"
+            dev_href = z.Device.href if z.Device is not None else ""
+            lines.append(
+                f"| `{z.href}` | {z.Name or '?'} | {z.ControlType or '?'} | {cat} | `{dev_href}` |"
+            )
+        lines.append("")
+
+    if "keypads" in selected:
+        lines.append("## Keypads — Buttons & Programming")
+        lines.append("")
+        lines.append("_For each keypad/pico/remote: every button with its engraving and what it does._")
+        lines.append("")
+        devices_by_href: dict[str, Device] = {d.href: d for d in inv.devices}
+
+        if not inv.button_group_expansions:
+            lines.append("_No keypad button data captured._")
+            lines.append("")
+        else:
+            for dhref, bgs in sorted(inv.button_group_expansions.items()):
+                d = devices_by_href.get(dhref)
+                if d is None:
+                    continue
+                ahref = d.AssociatedArea.href if d.AssociatedArea is not None else None
+                lines.append(f"### {d.Name or '?'} — `{dhref}`")
+                lines.append(
+                    f"_{d.DeviceType} {d.ModelNumber or ''} · "
+                    f"Area: {area_path(ahref, areas_by_href) if ahref else '?'} · "
+                    f"SN: {d.SerialNumber or '?'}_"
+                )
+                lines.append("")
+                lines.append("| # | Engraving / Name | ButtonType | Action |")
+                lines.append("|---:|---|---|---|")
+                for bg in bgs:
+                    for btn in bg.Buttons or []:
+                        eng_text = btn.Engraving.Text if btn.Engraving is not None else None
+                        action = resolve_button_action(
+                            btn, inv.programming_models, inv.presets, zones_by_href
+                        )
+                        lines.append(
+                            f"| {btn.ButtonNumber or '?'} | "
+                            f"{eng_text or btn.Name or ''} | "
+                            f"`{btn.ButtonType or '?'}` | "
+                            f"{action} |"
+                        )
+                lines.append("")
+
+    if "virtual_buttons" in selected and inv.virtual_buttons:
         lines.append("## Virtual Buttons (timeclock / scene targets)")
         lines.append("")
         lines.append("| href | Name | Category | ProgrammingModel |")
@@ -238,8 +285,7 @@ def to_markdown(inv: ProcessorInventory) -> str:
             lines.append(f"| `{v.href}` | {v.Name or '?'} | {cat} | `{pm_href}` |")
         lines.append("")
 
-    # Area scenes
-    if inv.area_scenes:
+    if "area_scenes" in selected and inv.area_scenes:
         lines.append("## Area Scenes")
         lines.append("")
         lines.append("| href | Name | Area | ProgrammingModel |")
@@ -251,8 +297,7 @@ def to_markdown(inv: ProcessorInventory) -> str:
             lines.append(f"| `{s.href}` | {s.Name or '?'} | {area_label} | `{pm_href}` |")
         lines.append("")
 
-    # Timeclock
-    if inv.timeclock_event_rules:
+    if "timeclock" in selected and inv.timeclock_event_rules:
         lines.append("## Timeclock Event Rules")
         lines.append("")
         lines.append("| href | Name | Enabled | Days | TimeReference |")

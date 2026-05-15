@@ -1,10 +1,10 @@
-import { Loader2, RefreshCw } from "lucide-react";
+import { ArrowUpCircle, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppStore } from "@/stores/app-store";
 import { cn } from "@/lib/utils";
 import type { Area, Device } from "@/lib/types";
-import { areaPath } from "@/features/inventory/helpers";
+import { areaPath, firmwareUpdate } from "@/features/inventory/helpers";
 import { deviceCategoryIcon } from "@/features/inventory/icons";
 import { t } from "@/i18n";
 
@@ -87,6 +87,7 @@ export function DeviceList({
             devices.map((d) => {
               const active = selected === d.href;
               const Icon = deviceCategoryIcon(d.DeviceType);
+              const update = firmwareUpdate(d.FirmwareImage);
               return (
                 <li key={d.href}>
                   <button
@@ -101,8 +102,17 @@ export function DeviceList({
                       <Icon className="size-4" />
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-sm font-medium">
+                      <span className="flex items-center gap-2 truncate text-sm font-medium">
                         {d.Name ?? d.DeviceType}
+                        {update && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-500"
+                            title={`Update available: ${update.installed} → ${update.available}`}
+                          >
+                            <ArrowUpCircle className="size-3" />
+                            Update
+                          </span>
+                        )}
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
                         {d.DeviceType}

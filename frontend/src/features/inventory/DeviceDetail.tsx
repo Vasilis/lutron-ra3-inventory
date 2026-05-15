@@ -1,7 +1,11 @@
-import { Hash } from "lucide-react";
+import { ArrowUpCircle, Hash } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Area, ButtonGroup, Device, Zone } from "@/lib/types";
-import { areaPath, firmwareDisplay } from "@/features/inventory/helpers";
+import {
+  areaPath,
+  firmwareDisplay,
+  firmwareUpdate,
+} from "@/features/inventory/helpers";
 import { deviceCategoryIcon } from "@/features/inventory/icons";
 import { t } from "@/i18n";
 
@@ -37,6 +41,7 @@ export function DeviceDetail({
     zonesByHref.get(r.href),
   ).filter((z): z is Zone => Boolean(z));
   const buttonGroups = buttonGroupExpansions[device.href];
+  const update = firmwareUpdate(device.FirmwareImage);
 
   return (
     <ScrollArea className="h-full">
@@ -46,8 +51,14 @@ export function DeviceDetail({
             <Icon className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-semibold">
+            <h2 className="flex items-center gap-2 truncate text-lg font-semibold">
               {device.Name ?? device.DeviceType}
+              {update && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-500">
+                  <ArrowUpCircle className="size-3" />
+                  Update available
+                </span>
+              )}
             </h2>
             <p className="truncate text-xs text-muted-foreground">
               {device.DeviceType}
@@ -74,6 +85,23 @@ export function DeviceDetail({
             [t("inventory.href"), device.href],
           ]}
         />
+
+        {update && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+            <div className="mb-1 flex items-center gap-2 font-medium text-amber-500">
+              <ArrowUpCircle className="size-4" />
+              Firmware update available
+            </div>
+            <div className="text-xs text-foreground/80">
+              Installed <code className="font-mono">{update.installed}</code>
+              {" → "}available <code className="font-mono">{update.available}</code>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              This app doesn't push firmware updates — initiate them from
+              Lutron Designer or the official Lutron app.
+            </p>
+          </div>
+        )}
 
         {localZones.length > 0 && (
           <section>

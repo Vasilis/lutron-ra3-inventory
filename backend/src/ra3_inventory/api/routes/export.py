@@ -31,8 +31,23 @@ async def export_json(inv: LatestInventoryDep, sanitized: bool = False) -> Respo
 
 
 @router.get("/markdown")
-async def export_markdown(inv: LatestInventoryDep, sanitized: bool = False) -> Response:
-    body = to_markdown(_selected_inventory(inv, sanitized)).encode("utf-8")
+async def export_markdown(
+    inv: LatestInventoryDep,
+    sanitized: bool = False,
+    sections: str | None = None,
+) -> Response:
+    """Render Markdown.
+
+    ``sections``: optional comma-separated list of section keys (see
+    ``backend/src/ra3_inventory/export/markdown_export.py:SECTION_KEYS``).
+    When supplied, only those sections are emitted; when absent, all
+    sections are included (legacy behavior).
+    """
+    section_set: set[str] | None = None
+    if sections is not None:
+        section_set = {s.strip() for s in sections.split(",") if s.strip()}
+
+    body = to_markdown(_selected_inventory(inv, sanitized), sections=section_set).encode("utf-8")
     return Response(
         content=body,
         media_type="text/markdown; charset=utf-8",

@@ -1,6 +1,10 @@
-import { Settings } from "lucide-react";
+import { useState } from "react";
+import { Download, Settings } from "lucide-react";
 import { BackendStatus } from "@/components/BackendStatus";
 import { Button } from "@/components/ui/button";
+import { ExportDialog } from "@/features/export/ExportDialog";
+import { SettingsDialog } from "@/features/settings/SettingsDialog";
+import { useAppStore } from "@/stores/app-store";
 import { t } from "@/i18n";
 
 interface AppShellProps {
@@ -11,21 +15,17 @@ interface AppShellProps {
 }
 
 /**
- * Top-level three-pane layout shell.
+ * Top-level shell — header with status pill + Export + Settings, then
+ * either a three-pane main (left/center/right) or a single-column
+ * children area for the welcome / startup states.
  *
- * Layout:
- *   ┌─────────────────────────────────────────────────────┐
- *   │  RA3 Inventory          [status pill]   [⚙]         │
- *   ├──────────┬────────────────────────┬─────────────────┤
- *   │  Areas   │  Devices (selected     │  Detail (selected
- *   │  tree    │  area's contents)      │  device's fields)
- *   │          │                        │
- *   └──────────┴────────────────────────┴─────────────────┘
- *
- * When ``children`` is supplied (e.g. the welcome screen before any profile
- * exists), the three-pane area is replaced by it.
+ * Export and Settings dialogs are owned here so the rest of the app
+ * doesn't have to plumb their open state through.
  */
 export function AppShell({ left, center, right, children }: AppShellProps) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const activeProfileSerial = useAppStore((s) => s.activeProfileSerial);
   const hasThreePane = left !== undefined && center !== undefined;
 
   return (
@@ -39,9 +39,25 @@ export function AppShell({ left, center, right, children }: AppShellProps) {
             {t("app.title")}
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <BackendStatus />
-          <Button variant="ghost" size="icon" aria-label={t("settings.label")}>
+          {activeProfileSerial && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setExportOpen(true)}
+              className="gap-1.5"
+            >
+              <Download className="size-4" />
+              {t("export.label")}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t("settings.label")}
+            onClick={() => setSettingsOpen(true)}
+          >
             <Settings className="size-4" />
           </Button>
         </div>
@@ -60,6 +76,9 @@ export function AppShell({ left, center, right, children }: AppShellProps) {
       ) : (
         <main className="flex-1 overflow-y-auto">{children}</main>
       )}
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <ExportDialog open={exportOpen} onOpenChange={setExportOpen} />
     </div>
   );
 }

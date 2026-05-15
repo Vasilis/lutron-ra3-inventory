@@ -19,11 +19,22 @@ export interface InstalledDate {
   Day: number | null;
 }
 
+export interface FirmwareSlot {
+  Firmware?: FirmwareInfo;
+  AvailableForUpload?: FirmwareInfo;
+}
+
+export interface FirmwareContents {
+  Type?: string;
+  OS?: FirmwareSlot;
+  Boot?: FirmwareSlot;
+}
+
 export interface DeviceFirmwareImage {
   Firmware: FirmwareInfo | null;
   Installed: InstalledDate | null;
   // Newer firmware shape (26.x+) lives under model_extra:
-  Contents?: Array<{ OS?: { Firmware?: FirmwareInfo } }>;
+  Contents?: FirmwareContents[];
 }
 
 export interface NetworkInterface {

@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+env/
+
+# Briefcase
+backend/build/
+backend/dist/
+backend/logs/
+
+# Frontend
+node_modules/
+frontend/dist/
+.vite/
+*.tsbuildinfo
+.eslintcache
+
+# Generated frontend assets vendored into backend at build time
+backend/src/ra3_inventory/_web/static/*
+!backend/src/ra3_inventory/_web/static/.gitkeep
+
+# Generated API client
+frontend/src/api/generated/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/settings.example.json
+*.swp
+*~
+
+# Secrets — never commit real Lutron certs
+**/lutron_certs/
+*.pem
+*.key
+*.crt
+!THIRD_PARTY_LICENSES/**/*.pem
+!THIRD_PARTY_LICENSES/**/*.crt
+
+# User-extracted inventories — never commit a real one
+examples/*.real.json
+examples/*.real.md
+**/lutron_raw.json
+**/lutron_inventory.json
+**/lutron_inventory.md
+**/lutron_inventory_raw.md
+
+# Logs
+*.log
+
+# Briefcase signing artifacts
+*.app.zip
+*.dmg
+*.pkg

@@ -1,10 +1,6 @@
 import { useMemo } from "react";
-import { ArrowUpCircle, Loader2, RefreshCw } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { useState } from "react";
+import { ArrowUpCircle, ChevronDown, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppStore } from "@/stores/app-store";
@@ -60,11 +56,12 @@ export function DeviceList({
     () => groupAdjacentDevices(devices, areasByHref, zonesByHref),
     [devices, areasByHref, zonesByHref],
   );
+  const [zonesExpanded, setZonesExpanded] = useState(false);
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-border px-5 py-3">
-        <div className="flex flex-col gap-0.5">
+      <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="text-xs uppercase tracking-wide text-muted-foreground">
             {t("nav.devices")}
           </div>
@@ -75,26 +72,28 @@ export function DeviceList({
                 : `${devices.length} of ${deviceCount} devices`}
             </span>
             <span className="text-muted-foreground">·</span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="rounded text-sm underline decoration-dotted decoration-muted-foreground/60 underline-offset-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  disabled={visibleZones.length === 0}
-                >
-                  {visibleZones.length}
-                  {isFiltered
-                    ? ` of ${totalZoneCount} ${totalZoneCount === 1 ? "zone" : "zones"}`
-                    : ` ${visibleZones.length === 1 ? "zone" : "zones"}`}
-                </button>
-              </TooltipTrigger>
-              {visibleZones.length > 0 && (
-                <TooltipContent side="bottom" align="start" className="max-w-md p-0">
-                  <ZoneListTooltip zones={visibleZones} />
-                </TooltipContent>
-              )}
-            </Tooltip>
+            <button
+              type="button"
+              className="inline-flex items-center gap-0.5 rounded text-sm text-foreground/90 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              onClick={() => setZonesExpanded((v) => !v)}
+              disabled={visibleZones.length === 0}
+              aria-expanded={zonesExpanded}
+            >
+              {visibleZones.length > 0 &&
+                (zonesExpanded ? (
+                  <ChevronDown className="size-3.5" />
+                ) : (
+                  <ChevronRight className="size-3.5" />
+                ))}
+              {visibleZones.length}
+              {isFiltered
+                ? ` of ${totalZoneCount} ${totalZoneCount === 1 ? "zone" : "zones"}`
+                : ` ${visibleZones.length === 1 ? "zone" : "zones"}`}
+            </button>
           </div>
+          {zonesExpanded && visibleZones.length > 0 && (
+            <ZoneInlineList zones={visibleZones} />
+          )}
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">
@@ -172,7 +171,7 @@ export function DeviceList({
   );
 }
 
-function ZoneListTooltip({ zones }: { zones: Zone[] }) {
+function ZoneInlineList({ zones }: { zones: Zone[] }) {
   const sorted = [...zones].sort((a, b) =>
     (a.Name ?? "").localeCompare(b.Name ?? "", undefined, {
       sensitivity: "base",
@@ -180,7 +179,7 @@ function ZoneListTooltip({ zones }: { zones: Zone[] }) {
     }),
   );
   return (
-    <div className="max-h-64 overflow-y-auto p-2">
+    <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-border bg-muted/40 p-2">
       <ul className="flex flex-col">
         {sorted.map((z) => (
           <li

@@ -56,6 +56,32 @@ class Device(RA3Resource):
     DeviceRules: dict | None = None
     Parent: HrefRef | None = None
 
+    @property
+    def firmware_display_name(self) -> str | None:
+        """Return the firmware display name across known processor shapes."""
+        fw = self.FirmwareImage
+        if fw is None:
+            return None
+        if fw.Firmware is not None and fw.Firmware.DisplayName:
+            return fw.Firmware.DisplayName
+
+        # RA 3 firmware 26.x moved many device firmware versions under
+        # FirmwareImage.Contents[0].OS.Firmware.DisplayName.
+        extra = fw.model_extra or {}
+        contents = extra.get("Contents") or []
+        if not isinstance(contents, list):
+            return None
+        for item in contents:
+            if not isinstance(item, dict):
+                continue
+            os_block = item.get("OS")
+            if not isinstance(os_block, dict):
+                continue
+            firmware = os_block.get("Firmware")
+            if isinstance(firmware, dict) and firmware.get("DisplayName"):
+                return str(firmware["DisplayName"])
+        return None
+
 
 DEVICE_REGISTRY: dict[str, type[Device]] = {}
 
@@ -66,7 +92,12 @@ def register_device(*device_types: str):
     def deco(cls: type[Device]) -> type[Device]:
         for dt in device_types:
             if dt in DEVICE_REGISTRY and DEVICE_REGISTRY[dt] is not cls:
-                _LOG.warning("DeviceType %r already registered to %s, replacing with %s", dt, DEVICE_REGISTRY[dt].__name__, cls.__name__)
+                _LOG.warning(
+                    "DeviceType %r already registered to %s, replacing with %s",
+                    dt,
+                    DEVICE_REGISTRY[dt].__name__,
+                    cls.__name__,
+                )
             DEVICE_REGISTRY[dt] = cls
         return cls
 

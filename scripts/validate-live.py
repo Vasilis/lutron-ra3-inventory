@@ -91,22 +91,35 @@ async def _run(args: argparse.Namespace) -> int:
         serial, processor = await _derive_serial(args.host, tmp)
         _LOG.info("Processor serial: %s (%s)", serial, processor.Name or processor.ModelNumber)
 
-        # Install certs into the profile tree + keychain mirror.
+        # Install certs into the profile tree or Keychain.
         ensure_profile_tree(serial)
-        store_pairing_to_disk(
-            serial,
-            key_pem=(tmp / "caseta.key").read_text(),
-            cert_pem=(tmp / "caseta.crt").read_text(),
-            ca_pem=(tmp / "caseta-bridge.crt").read_text(),
-        )
+        key_pem = (tmp / "caseta.key").read_text()
+        cert_pem = (tmp / "caseta.crt").read_text()
+        ca_pem = (tmp / "caseta-bridge.crt").read_text()
         if keychain.is_available():
             keychain.store_pairing(
                 serial,
-                key_pem=(tmp / "caseta.key").read_text(),
-                cert_pem=(tmp / "caseta.crt").read_text(),
-                ca_pem=(tmp / "caseta-bridge.crt").read_text(),
+                key_pem=key_pem,
+                cert_pem=cert_pem,
+                ca_pem=ca_pem,
             )
             _LOG.info("Mirrored creds to macOS Keychain")
+        elif args.disk_passphrase:
+            store_pairing_to_disk(
+                serial,
+                key_pem=key_pem,
+                cert_pem=cert_pem,
+                ca_pem=ca_pem,
+                passphrase=args.disk_passphrase,
+            )
+            _LOG.info("Stored creds in encrypted on-disk fallback")
+        else:
+            print(
+                "ERROR: Keychain unavailable; pass --disk-passphrase "
+                "to use encrypted on-disk credential storage",
+                file=sys.stderr,
+            )
+            return 2
 
         fw = ""
         if processor.FirmwareImage and processor.FirmwareImage.Firmware:
@@ -118,20 +131,23 @@ async def _run(args: argparse.Namespace) -> int:
         }, indent=2))
 
     # Now run the real extraction.
-    certs = materialize_pairing(serial)
+    certs = materialize_pairing(serial, passphrase=args.disk_passphrase)
     if certs is None:
         print(f"ERROR: failed to materialize certs for {serial}", file=sys.stderr)
         return 2
 
     print("\nRunning full extraction:")
-    inv = await extract_inventory(
-        host=args.host,
-        keyfile=certs.key,
-        certfile=certs.cert,
-        ca_certs=certs.ca,
-        on_progress=_on_progress,
-        capture_raw=args.capture_raw,
-    )
+    try:
+        inv = await extract_inventory(
+            host=args.host,
+            keyfile=certs.key,
+            certfile=certs.cert,
+            ca_certs=certs.ca,
+            on_progress=_on_progress,
+            capture_raw=args.capture_raw,
+        )
+    finally:
+        certs.cleanup()
     snapshot_path = write_snapshot(serial, inv)
     print("\nSummary:")
     print(f"  Processor : {inv.processor.Name or '?'}  ({inv.processor.ModelNumber})")
@@ -146,12 +162,12 @@ async def _run(args: argparse.Namespace) -> int:
     print(f"  Snapshot  : {snapshot_path}")
 
     if args.save_example:
-        from sanitize import sanitize_inventory  # type: ignore[import-not-found]
+        from sanitize_snapshot import sanitize_snapshot
 
-        sanitized = sanitize_inventory(inv)
+        sanitized = sanitize_snapshot(inv.model_dump(mode="json"))
         dst = Path(args.save_example).expanduser().resolve()
         dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_text(sanitized.model_dump_json(indent=2))
+        dst.write_text(json.dumps(sanitized, indent=2))
         print(f"  Example   : {dst}")
     return 0
 
@@ -161,6 +177,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--host", required=True, help="processor IP")
     p.add_argument("--certs-dir", required=True, help="dir holding caseta.key/crt + caseta-bridge.crt")
     p.add_argument("--name", default="Default", help="profile display name")
+    p.add_argument(
+        "--disk-passphrase",
+        default=None,
+        help="passphrase for encrypted on-disk credential storage when Keychain is unavailable",
+    )
     p.add_argument("--capture-raw", action="store_true",
                    help="include the raw LEAP responses in the snapshot (large)")
     p.add_argument("--save-example", default=None,

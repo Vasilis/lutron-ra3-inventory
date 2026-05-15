@@ -78,19 +78,31 @@ def to_xlsx(inv: ProcessorInventory) -> bytes:
     devices = wb.create_sheet("Devices")
     rows = []
     for d in inv.devices:
-        fw_name = ""
-        if d.FirmwareImage and d.FirmwareImage.Firmware:
-            fw_name = d.FirmwareImage.Firmware.DisplayName or ""
         ahref = d.AssociatedArea.href if d.AssociatedArea else None
-        rows.append([
-            d.href, d.Name or "", d.DeviceType, d.ModelNumber or "",
-            str(d.SerialNumber or ""), fw_name, d.AddressedState or "",
-            area_path(ahref, areas_by_href) if ahref else "",
-        ])
+        rows.append(
+            [
+                d.href,
+                d.Name or "",
+                d.DeviceType,
+                d.ModelNumber or "",
+                str(d.SerialNumber or ""),
+                d.firmware_display_name or "",
+                d.AddressedState or "",
+                area_path(ahref, areas_by_href) if ahref else "",
+            ]
+        )
     _write_sheet(
         devices,
-        ["href", "Name", "DeviceType", "ModelNumber", "SerialNumber",
-         "Firmware", "AddressedState", "Area"],
+        [
+            "href",
+            "Name",
+            "DeviceType",
+            "ModelNumber",
+            "SerialNumber",
+            "Firmware",
+            "AddressedState",
+            "Area",
+        ],
         rows,
     )
 
@@ -99,21 +111,29 @@ def to_xlsx(inv: ProcessorInventory) -> bytes:
     rows = []
     for z in inv.zones:
         cat = f"{z.Category.Type or ''}/{z.Category.SubType or ''}" if z.Category else ""
-        rows.append([
-            z.href, z.Name or "", z.ControlType or "", cat,
-            z.Device.href if z.Device else "",
-        ])
+        rows.append(
+            [
+                z.href,
+                z.Name or "",
+                z.ControlType or "",
+                cat,
+                z.Device.href if z.Device else "",
+            ]
+        )
     _write_sheet(zones, ["href", "Name", "ControlType", "Category", "Device"], rows)
 
     # Areas
     areas = wb.create_sheet("Areas")
     rows = []
     for a in inv.areas:
-        rows.append([
-            a.href, a.Name or "",
-            a.Parent.href if a.Parent else "",
-            area_path(a.href, areas_by_href),
-        ])
+        rows.append(
+            [
+                a.href,
+                a.Name or "",
+                a.Parent.href if a.Parent else "",
+                area_path(a.href, areas_by_href),
+            ]
+        )
     _write_sheet(areas, ["href", "Name", "Parent", "FullPath"], rows)
 
     # Buttons
@@ -127,15 +147,30 @@ def to_xlsx(inv: ProcessorInventory) -> bytes:
                     btn, inv.programming_models, inv.presets, zones_by_href
                 )
                 eng = btn.Engraving.Text if btn.Engraving else ""
-                rows.append([
-                    dhref, d.Name if d else "", btn.href,
-                    btn.ButtonNumber or "", eng or "", btn.Name or "",
-                    btn.ButtonType or "", action,
-                ])
+                rows.append(
+                    [
+                        dhref,
+                        d.Name if d else "",
+                        btn.href,
+                        btn.ButtonNumber or "",
+                        eng or "",
+                        btn.Name or "",
+                        btn.ButtonType or "",
+                        action,
+                    ]
+                )
     _write_sheet(
         buttons,
-        ["device_href", "device_name", "button_href", "ButtonNumber",
-         "Engraving", "Name", "ButtonType", "Action"],
+        [
+            "device_href",
+            "device_name",
+            "button_href",
+            "ButtonNumber",
+            "Engraving",
+            "Name",
+            "ButtonType",
+            "Action",
+        ],
         rows,
     )
 

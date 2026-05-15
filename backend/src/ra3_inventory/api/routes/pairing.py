@@ -5,6 +5,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import tempfile
+from contextlib import suppress
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -15,11 +18,10 @@ from ...models import RadioRa3Processor, parse_device
 from ...storage import keychain
 from ...storage.certs import store_pairing_to_disk
 from ...storage.paths import (
-    cert_paths,
     ensure_profile_tree,
     profile_json_path,
 )
-from ..deps import session_dependency, get_config
+from ..deps import session_dependency
 from ..dto import PairStartRequest, PairStartResponse
 from ..events import sse_stream
 
@@ -32,7 +34,10 @@ _LOG = logging.getLogger(__name__)
 async def pair_start(body: PairStartRequest, request: Request) -> PairStartResponse:
     bus = request.app.state.event_bus
     channel = await bus.create("pair")
-    asyncio.create_task(_run_pairing(request.app, channel.id, body))
+    bus.start_task(
+        _run_pairing(request.app, channel.id, body),
+        name=f"pairing-{channel.id}",
+    )
     return PairStartResponse(pair_id=channel.id)
 
 
@@ -57,6 +62,13 @@ async def _run_pairing(app, channel_id: str, body: PairStartRequest) -> None:
     assert channel is not None
 
     try:
+        keychain_available = keychain.is_available()
+        if not keychain_available and body.disk_passphrase is None:
+            raise RuntimeError(
+                "macOS Keychain unavailable — provide disk_passphrase "
+                "to use encrypted on-disk credential storage"
+            )
+
         await channel.publish({"phase": "starting", "host": body.host})
 
         ready_fired = asyncio.Event()
@@ -68,33 +80,35 @@ async def _run_pairing(app, channel_id: str, body: PairStartRequest) -> None:
         # button-press wait. Bridge that into an SSE event.
         async def _watch_ready() -> None:
             await ready_fired.wait()
-            await channel.publish({
-                "phase": "ready",
-                "detail": "Press the pairing button on your Lutron processor (within 30 seconds).",
-            })
+            await channel.publish(
+                {
+                    "phase": "ready",
+                    "detail": "Press the pairing button on your Lutron processor (within 30 seconds).",
+                }
+            )
 
         watcher = asyncio.create_task(_watch_ready())
         try:
             pairing_data = await async_pair(body.host, ready=_ready_cb)
         finally:
             watcher.cancel()
-            try:
+            with suppress(asyncio.CancelledError):
                 await watcher
-            except asyncio.CancelledError:
-                pass
 
         # We have key + cert + ca PEMs. Open a single TLS query to /device?where=
         # IsThisDevice:true to recover the processor SerialNumber, which becomes
         # the profile directory key.
-        import tempfile
-
-        with tempfile.NamedTemporaryFile("w", suffix=".key", delete=False) as kf, \
-             tempfile.NamedTemporaryFile("w", suffix=".crt", delete=False) as cf, \
-             tempfile.NamedTemporaryFile("w", suffix=".ca", delete=False) as af:
+        with (
+            tempfile.NamedTemporaryFile("w", suffix=".key", delete=False) as kf,
+            tempfile.NamedTemporaryFile("w", suffix=".crt", delete=False) as cf,
+            tempfile.NamedTemporaryFile("w", suffix=".ca", delete=False) as af,
+        ):
             kf.write(pairing_data["key"])
             cf.write(pairing_data["cert"])
             af.write(pairing_data["ca"])
-            kf.flush(); cf.flush(); af.flush()
+            kf.flush()
+            cf.flush()
+            af.flush()
             kfp, cfp, afp = kf.name, cf.name, af.name
 
         await channel.publish({"phase": "discovering", "detail": "Reading processor info..."})
@@ -115,73 +129,75 @@ async def _run_pairing(app, channel_id: str, body: PairStartRequest) -> None:
                 proto.close()
                 await proto.wait_closed()
                 proto_task.cancel()
-                try:
+                with suppress(asyncio.CancelledError, Exception):
                     await proto_task
-                except (asyncio.CancelledError, Exception):  # noqa: BLE001
-                    pass
         finally:
-            import os
             for path in (kfp, cfp, afp):
-                try:
+                with suppress(OSError):
                     os.unlink(path)
-                except OSError:
-                    pass
 
         serial = str(processor.SerialNumber or "unknown")
-        if serial == "unknown":
+        if (
+            serial == "unknown"
+            and isinstance(processor, RadioRa3Processor)
+            and processor.NetworkInterfaces
+        ):
             # Some Sunnata firmwares omit SerialNumber on the processor; fall
             # back to the MAC address.
-            if isinstance(processor, RadioRa3Processor) and processor.NetworkInterfaces:
-                mac = processor.NetworkInterfaces[0].MACAddress or ""
-                if mac:
-                    serial = mac.replace(":", "").lower()
+            mac = processor.NetworkInterfaces[0].MACAddress or ""
+            if mac:
+                serial = mac.replace(":", "").lower()
         if not serial or serial == "unknown":
             raise RuntimeError("could not derive a stable profile key from processor")
 
         ensure_profile_tree(serial)
-        store_pairing_to_disk(
-            serial,
-            key_pem=pairing_data["key"],
-            cert_pem=pairing_data["cert"],
-            ca_pem=pairing_data["ca"],
-        )
-        if keychain.is_available():
+        if keychain_available:
             keychain.store_pairing(
                 serial,
                 key_pem=pairing_data["key"],
                 cert_pem=pairing_data["cert"],
                 ca_pem=pairing_data["ca"],
             )
+        else:
+            store_pairing_to_disk(
+                serial,
+                key_pem=pairing_data["key"],
+                cert_pem=pairing_data["cert"],
+                ca_pem=pairing_data["ca"],
+                passphrase=body.disk_passphrase,
+            )
 
-        fw = ""
-        if processor.FirmwareImage and processor.FirmwareImage.Firmware:
-            fw = processor.FirmwareImage.Firmware.DisplayName or ""
+        fw = processor.firmware_display_name or ""
 
-        profile_json_path(serial).write_text(json.dumps({
-            "name": body.name,
-            "host": body.host,
-            "last_seen": datetime.now(timezone.utc).isoformat(),
-            "firmware": fw,
-            "leap_version": pairing_data["version"],
-        }, indent=2))
+        profile_json_path(serial).write_text(
+            json.dumps(
+                {
+                    "name": body.name,
+                    "host": body.host,
+                    "last_seen": datetime.now(timezone.utc).isoformat(),
+                    "firmware": fw,
+                    "leap_version": pairing_data["version"],
+                },
+                indent=2,
+            )
+        )
 
         cfg.active_profile_serial = serial
         cfg.save()
 
-        await channel.publish({
-            "phase": "success",
-            "serial": serial,
-            "name": body.name,
-            "host": body.host,
-            "firmware": fw,
-        })
+        await channel.publish(
+            {
+                "phase": "success",
+                "serial": serial,
+                "name": body.name,
+                "host": body.host,
+                "firmware": fw,
+            }
+        )
     except asyncio.TimeoutError:
         await channel.publish({"phase": "timeout", "detail": "button press window expired"})
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _LOG.exception("pairing failed for %s", body.host)
         await channel.publish({"phase": "error", "error": repr(exc)})
     finally:
-        # Give the SSE stream a moment to deliver the terminal event before
-        # we drop the channel.
-        await asyncio.sleep(0.5)
-        await bus.drop(channel_id)
+        await bus.finish(channel_id)

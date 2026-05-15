@@ -55,9 +55,7 @@ async def connect_leap(
     Identity is established via the pinned CA certificate from pairing.
     """
     loop = asyncio.get_running_loop()
-    ssl_context = await loop.run_in_executor(
-        None, _create_tls_context, keyfile, certfile, ca_certs
-    )
+    ssl_context = await loop.run_in_executor(None, _create_tls_context, keyfile, certfile, ca_certs)
     return await open_connection(
         host,
         port,

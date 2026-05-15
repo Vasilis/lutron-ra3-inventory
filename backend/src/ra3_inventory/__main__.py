@@ -27,7 +27,6 @@ import sys
 import threading
 import time
 from concurrent.futures import Future
-from typing import Tuple
 
 import uvicorn
 
@@ -43,7 +42,7 @@ def _run_uvicorn(server: uvicorn.Server) -> None:
     asyncio.run(server.serve())
 
 
-def _wait_for_port(server: uvicorn.Server, port_future: "Future[int]", timeout: float = 10.0) -> None:
+def _wait_for_port(server: uvicorn.Server, port_future: Future[int], timeout: float = 10.0) -> None:
     """Watch the server until it has a bound socket, then publish its port."""
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -56,7 +55,7 @@ def _wait_for_port(server: uvicorn.Server, port_future: "Future[int]", timeout: 
     port_future.set_exception(TimeoutError("uvicorn did not bind a port in time"))
 
 
-def _start_backend(cfg: Config) -> Tuple[uvicorn.Server, threading.Thread, int]:
+def _start_backend(cfg: Config) -> tuple[uvicorn.Server, threading.Thread, int]:
     """Start uvicorn on a worker thread. Returns (server, thread, port)."""
     app = create_app(cfg)
     config = uvicorn.Config(
@@ -70,7 +69,7 @@ def _start_backend(cfg: Config) -> Tuple[uvicorn.Server, threading.Thread, int]:
     server = uvicorn.Server(config)
     server.config.load()  # let uvicorn pick its loop policy synchronously
 
-    port_future: "Future[int]" = Future()
+    port_future: Future[int] = Future()
 
     thread = threading.Thread(
         target=_run_uvicorn, args=(server,), name="ra3-inventory-backend", daemon=True
@@ -92,7 +91,7 @@ def main() -> int:
 
     try:
         server, thread, port = _start_backend(cfg)
-    except Exception:  # noqa: BLE001
+    except Exception:
         _LOG.exception("Failed to start backend")
         return 1
 

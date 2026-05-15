@@ -86,5 +86,5 @@ async def extract_inventory(
         try:
             proto.close()
             await proto.wait_closed()
-        except Exception:  # noqa: BLE001
+        except Exception:
             _LOG.debug("Error during LeapProtocol shutdown", exc_info=True)

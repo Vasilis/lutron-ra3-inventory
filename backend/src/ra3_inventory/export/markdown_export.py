@@ -12,8 +12,6 @@ from collections import defaultdict
 
 from ..models import (
     Area,
-    Button,
-    ButtonGroup,
     Device,
     ProcessorInventory,
     Zone,
@@ -23,31 +21,7 @@ from ._resolver import resolve_button_action
 
 
 def _firmware_display(d: Device) -> str:
-    """Return the firmware display name for a device, handling two firmware shapes.
-
-    Older RA 3 firmware (<26.x) put the version at
-    ``FirmwareImage.Firmware.DisplayName``. Newer firmware (26.03.12+) leaves
-    that field ``null`` and moves the version into
-    ``FirmwareImage.Contents[0].OS.Firmware.DisplayName``.
-    """
-    fw = d.FirmwareImage
-    if fw is None:
-        return "_(none)_"
-    # Legacy shape
-    if fw.Firmware is not None and fw.Firmware.DisplayName:
-        return fw.Firmware.DisplayName
-    # Newer shape — fields under ``Contents`` are caught by ``extra="allow"``
-    extra = fw.model_extra or {}
-    contents = extra.get("Contents") or []
-    if contents and isinstance(contents, list):
-        first = contents[0]
-        if isinstance(first, dict):
-            os_block = first.get("OS") or {}
-            if isinstance(os_block, dict):
-                fw_block = os_block.get("Firmware") or {}
-                if isinstance(fw_block, dict) and fw_block.get("DisplayName"):
-                    return str(fw_block["DisplayName"])
-    return "_(none)_"
+    return d.firmware_display_name or "_(none)_"
 
 
 def _href_id(href: str | None) -> str:
@@ -77,11 +51,7 @@ def _format_timestamp(ts: object) -> str:
 
 def _count_buttons_in_expansions(inv) -> int:
     """Total buttons across all expanded button groups."""
-    return sum(
-        len(bg.Buttons or [])
-        for bgs in inv.button_group_expansions.values()
-        for bg in bgs
-    )
+    return sum(len(bg.Buttons or []) for bgs in inv.button_group_expansions.values() for bg in bgs)
 
 
 def to_markdown(inv: ProcessorInventory) -> str:
@@ -95,13 +65,17 @@ def to_markdown(inv: ProcessorInventory) -> str:
     lines.append(f"**Project:** {inv.project.Name or '?'}  ")
     lines.append(f"**ProductType:** `{inv.project.ProductType or '?'}`  ")
     if inv.project.ProjectModifiedTimestamp:
-        lines.append(f"**Project Modified:** {_format_timestamp(inv.project.ProjectModifiedTimestamp)}  ")
+        lines.append(
+            f"**Project Modified:** {_format_timestamp(inv.project.ProjectModifiedTimestamp)}  "
+        )
     lines.append(f"**Extracted at:** {inv.extracted_at.isoformat()}  ")
     lines.append(f"**Schema:** v{inv.schema_version}")
     if inv.partial:
         lines.append("")
-        lines.append("> **Note:** this snapshot is marked `partial=true` — the processor's "
-                     "project was modified during extraction.")
+        lines.append(
+            "> **Note:** this snapshot is marked `partial=true` — the processor's "
+            "project was modified during extraction."
+        )
     lines.append("")
 
     # Processor
@@ -143,11 +117,11 @@ def to_markdown(inv: ProcessorInventory) -> str:
     lines.append(f"| Presets resolved | {len(inv.presets)} |")
     lines.append("")
 
-    # DeviceType × Model counts
+    # DeviceType x Model counts
     type_counts: dict[tuple[str, str], int] = defaultdict(int)
     for d in inv.devices:
         type_counts[(d.DeviceType, d.ModelNumber or "_(none)_")] += 1
-    lines.append("## Device Type × Model")
+    lines.append("## Device Type x Model")
     lines.append("")
     lines.append("| Count | DeviceType | ModelNumber |")
     lines.append("|---:|---|---|")
@@ -181,8 +155,10 @@ def to_markdown(inv: ProcessorInventory) -> str:
         label = area_path(ahref, areas_by_href) if ahref else "_(unassigned)_"
         lines.append(f"### {label}")
         lines.append("")
-        lines.append("| href | Name | DeviceType | ModelNumber | SerialNumber | "
-                     "Firmware | Addressed | LocalZones | ButtonGroups |")
+        lines.append(
+            "| href | Name | DeviceType | ModelNumber | SerialNumber | "
+            "Firmware | Addressed | LocalZones | ButtonGroups |"
+        )
         lines.append("|---|---|---|---|---|---|---|---|---|")
         for d in sorted(by_area[ahref], key=lambda x: (x.DeviceType, x.Name or "")):
             lz = ", ".join(_href_id(r.href) for r in d.LocalZones) or "_(none)_"
@@ -284,10 +260,12 @@ def to_markdown(inv: ProcessorInventory) -> str:
         for t in inv.timeclock_event_rules:
             days = t.DaysOfWeek if t.DaysOfWeek else "?"
             tref = t.TimeReference
-            tref_str = tref.EventName if hasattr(tref, "EventName") and tref.EventName else str(tref or "?")  # type: ignore[union-attr]
-            lines.append(
-                f"| `{t.href}` | {t.Name or '?'} | {t.Enabled} | {days} | {tref_str} |"
-            )
+            tref_str = (
+                tref.EventName
+                if hasattr(tref, "EventName") and tref.EventName
+                else str(tref or "?")
+            )  # type: ignore[union-attr]
+            lines.append(f"| `{t.href}` | {t.Name or '?'} | {t.Enabled} | {days} | {tref_str} |")
         lines.append("")
 
     return "\n".join(lines) + "\n"

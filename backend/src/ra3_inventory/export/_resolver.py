@@ -67,8 +67,10 @@ def _preset_actions_for_pm(pm: ProgrammingModel) -> list[tuple[str, str]]:
     extra = pm.model_extra or {}
     advanced = extra.get("AdvancedToggleProperties")
     if isinstance(advanced, dict):
-        for state_label, key in (("toggle-primary", "PrimaryPreset"),
-                                 ("toggle-secondary", "SecondaryPreset")):
+        for state_label, key in (
+            ("toggle-primary", "PrimaryPreset"),
+            ("toggle-secondary", "SecondaryPreset"),
+        ):
             block = advanced.get(key)
             if isinstance(block, dict) and isinstance(block.get("href"), str):
                 out.append((state_label, block["href"]))

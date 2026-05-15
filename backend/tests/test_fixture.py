@@ -7,6 +7,7 @@ export, ensuring the typed pipeline is internally consistent.
 
 from __future__ import annotations
 
+import csv
 import io
 import zipfile
 from pathlib import Path
@@ -65,9 +66,14 @@ def test_fixture_csv_has_buttons(live_inventory: ProcessorInventory) -> None:
     button_csv = z.read("buttons.csv").decode("utf-8")
     # First non-header line should exist
     assert len(button_csv.splitlines()) > 1
+    device_rows = list(csv.DictReader(io.StringIO(z.read("devices.csv").decode("utf-8"))))
+    assert any(row["Firmware"] for row in device_rows)
 
 
 def test_fixture_xlsx_loads(live_inventory: ProcessorInventory) -> None:
     blob = to_xlsx(live_inventory)
     wb = load_workbook(io.BytesIO(blob))
     assert {"Summary", "Devices", "Zones", "Areas", "Buttons"}.issubset(set(wb.sheetnames))
+    rows = list(wb["Devices"].iter_rows(values_only=True))
+    firmware_col = rows[0].index("Firmware")
+    assert any(row[firmware_col] for row in rows[1:])

@@ -8,7 +8,8 @@
 
 The [community `pylutron-caseta` library](https://github.com/gurumitts/pylutron-caseta) exposes a parsed API that's great for home-automation integration but lossy as an inventory: every shade collapses to `type="Shade"` with `model=None`, button programming is invisible, and RA3-specific endpoints (`/areascene`, `/project/timeclockeventrules`, `/virtualbutton`) are skipped. Integrators and homeowners who want a faithful picture of their system have to drop to raw LEAP requests.
 
-This app does that for you, behind a UI.
+This app is being built to do that for you behind a UI. The backend extraction,
+snapshot, and export pipeline exists today; the desktop UI has not been built yet.
 
 ## What you'll get (when M1 ships)
 
@@ -33,28 +34,28 @@ This app does that for you, behind a UI.
 |---|---|
 | Backend | Python 3.10+ · FastAPI · Pydantic v2 |
 | LEAP | Vendored pairing + TLS + LEAP transport from pylutron-caseta (Apache-2.0) |
-| Frontend | React 18 · Vite · TypeScript (strict) · Tailwind · shadcn/ui |
+| Frontend (planned) | React 18 · Vite · TypeScript (strict) · Tailwind · shadcn/ui |
 | Shell | PyWebView (WKWebView on macOS) |
 | Packaging | `briefcase` → codesigned + notarized `.app` (universal2) |
 
 Realtime in M1 is SSE-only; WebSockets are deferred to M2 because of known WKWebView `ws://127.0.0.1` issues.
 
-See [`docs/architecture.md`](docs/architecture.md) for the long version and [`docs/leap-protocol-notes.md`](docs/leap-protocol-notes.md) for the verified LEAP endpoint surface against RA 3 firmware.
+See [`docs/leap-protocol-notes.md`](docs/leap-protocol-notes.md) for the verified LEAP endpoint surface against RA 3 firmware.
 
 ## Repo layout
 
 ```
 backend/         FastAPI + LEAP extractor + PyWebView entry
-frontend/        React UI
-docs/            architecture, protocol notes, screenshots, legacy scripts
+frontend/        reserved for the upcoming React UI (not implemented yet)
+docs/            protocol notes + legacy scripts
 examples/        sanitized sample snapshot (no real serials/MACs)
-scripts/         dev mock server, OpenAPI/TS client gen, build helpers
+scripts/         live-validation + snapshot-sanitizing helpers
 .github/         CI workflows + issue/PR templates
 ```
 
 ## Development
 
-Requirements: macOS, Python 3.10+, Node 20+, `npm` or `pnpm`.
+Requirements today: macOS and Python 3.10+.
 
 ```bash
 # Backend
@@ -64,21 +65,24 @@ source .venv/bin/activate
 pip install -e '.[dev]'
 pytest
 
-# Frontend
-cd ../frontend
-npm install
-npm run dev      # Vite dev server on :5173
-
-# Run the whole app (backend serves frontend dist + opens webview)
+# Optional: validate against a live processor with existing certs
 cd ..
-./scripts/dev-run.sh
+python scripts/validate-live.py --host 192.0.2.1 --certs-dir /path/to/lutron_certs
 ```
+
+The future frontend will add Node-based setup instructions once it exists.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for coding standards and PR workflow.
 
 ## Pairing
 
-On first launch the app opens a wizard. When prompted, **walk to your RA 3 processor and press the small black button on the front** within 30 seconds. The app stores the resulting key + cert in your macOS Keychain.
+The backend pairing API is implemented; the first-launch wizard is still planned.
+When pairing is exposed through the UI, you will **walk to your RA 3 processor
+and press the small black button on the front** within 30 seconds.
+
+By default, pairing credentials are stored in the macOS Keychain. If Keychain
+is unavailable, callers must provide a passphrase so the backend can use the
+encrypted on-disk fallback instead of silently writing plaintext PEMs.
 
 If you already have pairing certs from another tool (e.g., the standalone `lutron_raw_extract.py` script this project grew out of), drop them into `~/Library/Application Support/RA3Inventory/profiles/<serial>/certs/` — the app will pick them up.
 
@@ -86,7 +90,7 @@ Only **one** LEAP client can be connected to a processor at a time. If you also 
 
 ## Security
 
-- Private keys are stored in the macOS Keychain by default; the encrypted on-disk fallback uses Fernet over a scrypt-derived key gated by a user passphrase.
+- Private keys are stored in the macOS Keychain by default; when Keychain is unavailable, the backend requires a passphrase for the Fernet + scrypt encrypted on-disk fallback.
 - LEAP traffic is TLS, but the processor's CA is self-signed by Lutron — that's why we pin the bridge cert alongside our client cert.
 - Snapshots may contain device serials, MAC addresses, and network info. The default export to JSON/CSV/XLSX includes these; use the "sanitized" export option to strip them before sharing.
 

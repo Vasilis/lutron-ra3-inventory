@@ -27,22 +27,32 @@ def to_csv_zip(inv: ProcessorInventory) -> bytes:
     # Devices
     device_rows = []
     for d in inv.devices:
-        fw_name = ""
-        if d.FirmwareImage and d.FirmwareImage.Firmware:
-            fw_name = d.FirmwareImage.Firmware.DisplayName or ""
         ahref = d.AssociatedArea.href if d.AssociatedArea else None
-        device_rows.append({
-            "href": d.href,
-            "Name": d.Name or "",
-            "DeviceType": d.DeviceType,
-            "ModelNumber": d.ModelNumber or "",
-            "SerialNumber": d.SerialNumber or "",
-            "Firmware": fw_name,
-            "AddressedState": d.AddressedState or "",
-            "Area": area_path(ahref, areas_by_href) if ahref else "",
-        })
-    device_csv = _csv(device_rows, ["href", "Name", "DeviceType", "ModelNumber",
-                                     "SerialNumber", "Firmware", "AddressedState", "Area"])
+        device_rows.append(
+            {
+                "href": d.href,
+                "Name": d.Name or "",
+                "DeviceType": d.DeviceType,
+                "ModelNumber": d.ModelNumber or "",
+                "SerialNumber": d.SerialNumber or "",
+                "Firmware": d.firmware_display_name or "",
+                "AddressedState": d.AddressedState or "",
+                "Area": area_path(ahref, areas_by_href) if ahref else "",
+            }
+        )
+    device_csv = _csv(
+        device_rows,
+        [
+            "href",
+            "Name",
+            "DeviceType",
+            "ModelNumber",
+            "SerialNumber",
+            "Firmware",
+            "AddressedState",
+            "Area",
+        ],
+    )
 
     # Zones
     zone_rows = []
@@ -50,24 +60,28 @@ def to_csv_zip(inv: ProcessorInventory) -> bytes:
         cat = ""
         if z.Category:
             cat = f"{z.Category.Type or ''}/{z.Category.SubType or ''}"
-        zone_rows.append({
-            "href": z.href,
-            "Name": z.Name or "",
-            "ControlType": z.ControlType or "",
-            "Category": cat,
-            "Device": z.Device.href if z.Device else "",
-        })
+        zone_rows.append(
+            {
+                "href": z.href,
+                "Name": z.Name or "",
+                "ControlType": z.ControlType or "",
+                "Category": cat,
+                "Device": z.Device.href if z.Device else "",
+            }
+        )
     zone_csv = _csv(zone_rows, ["href", "Name", "ControlType", "Category", "Device"])
 
     # Areas
     area_rows = []
     for a in inv.areas:
-        area_rows.append({
-            "href": a.href,
-            "Name": a.Name or "",
-            "Parent": a.Parent.href if a.Parent else "",
-            "FullPath": area_path(a.href, areas_by_href),
-        })
+        area_rows.append(
+            {
+                "href": a.href,
+                "Name": a.Name or "",
+                "Parent": a.Parent.href if a.Parent else "",
+                "FullPath": area_path(a.href, areas_by_href),
+            }
+        )
     area_csv = _csv(area_rows, ["href", "Name", "Parent", "FullPath"])
 
     # Buttons (with resolved action)
@@ -81,18 +95,31 @@ def to_csv_zip(inv: ProcessorInventory) -> bytes:
                     btn, inv.programming_models, inv.presets, zones_by_href
                 )
                 eng = btn.Engraving.Text if btn.Engraving else ""
-                button_rows.append({
-                    "device_href": dhref,
-                    "device_name": device_name,
-                    "button_href": btn.href,
-                    "ButtonNumber": btn.ButtonNumber or "",
-                    "Engraving": eng or "",
-                    "Name": btn.Name or "",
-                    "ButtonType": btn.ButtonType or "",
-                    "Action": action,
-                })
-    button_csv = _csv(button_rows, ["device_href", "device_name", "button_href",
-                                     "ButtonNumber", "Engraving", "Name", "ButtonType", "Action"])
+                button_rows.append(
+                    {
+                        "device_href": dhref,
+                        "device_name": device_name,
+                        "button_href": btn.href,
+                        "ButtonNumber": btn.ButtonNumber or "",
+                        "Engraving": eng or "",
+                        "Name": btn.Name or "",
+                        "ButtonType": btn.ButtonType or "",
+                        "Action": action,
+                    }
+                )
+    button_csv = _csv(
+        button_rows,
+        [
+            "device_href",
+            "device_name",
+            "button_href",
+            "ButtonNumber",
+            "Engraving",
+            "Name",
+            "ButtonType",
+            "Action",
+        ],
+    )
 
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:

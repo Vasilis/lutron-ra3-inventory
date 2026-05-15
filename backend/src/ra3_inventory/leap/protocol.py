@@ -106,7 +106,7 @@ class LeapProtocol:
                 for handler in self._unsolicited_subs:
                     try:
                         handler(obj)
-                    except Exception:  # noqa: BLE001
+                    except Exception:
                         _LOG.exception("unsolicited message handler raised")
 
     async def subscribe(

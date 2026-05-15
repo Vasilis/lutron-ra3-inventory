@@ -19,8 +19,9 @@ import asyncio
 import json
 import logging
 import uuid
+from collections.abc import AsyncIterator, Coroutine
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from typing import Any
 
 _LOG = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ class EventBus:
     def __init__(self) -> None:
         self._channels: dict[str, EventChannel] = {}
         self._lock = asyncio.Lock()
+        self._tasks: set[asyncio.Task[Any]] = set()
 
     async def create(self, prefix: str = "task") -> EventChannel:
         async with self._lock:
@@ -69,6 +71,35 @@ class EventBus:
             channel = self._channels.pop(channel_id, None)
         if channel is not None:
             await channel.close()
+
+    def start_task(self, coro: Coroutine[Any, Any, Any], *, name: str) -> asyncio.Task[Any]:
+        """Start and retain one background task until it completes."""
+        task = asyncio.create_task(coro, name=name)
+        self._tasks.add(task)
+        task.add_done_callback(self._on_task_done)
+        return task
+
+    async def finish(self, channel_id: str, *, retention_seconds: float = 60.0) -> None:
+        """Close a channel but retain queued events briefly for late subscribers."""
+        channel = await self.get(channel_id)
+        if channel is not None:
+            await channel.close()
+            self.start_task(
+                self._drop_after(channel_id, retention_seconds),
+                name=f"event-channel-reap-{channel_id}",
+            )
+
+    async def _drop_after(self, channel_id: str, delay: float) -> None:
+        await asyncio.sleep(delay)
+        await self.drop(channel_id)
+
+    def _on_task_done(self, task: asyncio.Task[Any]) -> None:
+        self._tasks.discard(task)
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            _LOG.exception("background task %s failed", task.get_name(), exc_info=exc)
 
 
 async def sse_stream(channel: EventChannel) -> AsyncIterator[dict[str, str]]:

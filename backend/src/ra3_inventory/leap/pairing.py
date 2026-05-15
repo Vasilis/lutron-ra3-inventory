@@ -17,6 +17,7 @@ import os
 import socket
 import ssl
 import tempfile
+from contextlib import suppress
 from typing import Callable, Optional, Tuple, TypedDict
 
 import orjson
@@ -73,10 +74,8 @@ class _JsonSocket:
         LOGGER.debug("sent: %s", buffer)
 
     def __del__(self) -> None:
-        try:
+        with suppress(Exception):
             self._writer.close()
-        except Exception:  # noqa: BLE001
-            pass
 
 
 async def async_pair(
@@ -100,16 +99,12 @@ async def async_pair(
     )
 
     try:
-        cert_pem, ca_pem = await _async_generate_certificate(
-            server_addr, ssl_context, csr, ready
-        )
+        cert_pem, ca_pem = await _async_generate_certificate(server_addr, ssl_context, csr, ready)
     except ssl.SSLCertVerificationError:
         # Likely an RA 3 processor — retry trusting the Lutron root CA
         # instead of the LAP CA used by Caseta bridges.
         ssl_context.load_verify_locations(cadata=LUTRON_ROOT_CA_PEM)
-        cert_pem, ca_pem = await _async_generate_certificate(
-            server_addr, ssl_context, csr, ready
-        )
+        cert_pem, ca_pem = await _async_generate_certificate(server_addr, ssl_context, csr, ready)
         ca_pem = LUTRON_ROOT_CA_PEM
 
     signed_ssl_context = await loop.run_in_executor(
@@ -156,8 +151,7 @@ async def _async_generate_certificate(
         if message is None:
             raise ConnectionError("Pairing connection closed before button press")
         if message.get("Header", {}).get("ContentType", "").startswith("status;") and (
-            "PhysicalAccess"
-            in (message.get("Body", {}).get("Status", {}).get("Permissions", []))
+            "PhysicalAccess" in (message.get("Body", {}).get("Status", {}).get("Permissions", []))
         ):
             break
 
@@ -195,9 +189,7 @@ async def _async_generate_certificate(
 
 def _generate_private_key():
     LOGGER.debug("Generating a new private key...")
-    return rsa.generate_private_key(
-        public_exponent=65537, key_size=2048, backend=default_backend()
-    )
+    return rsa.generate_private_key(public_exponent=65537, key_size=2048, backend=default_backend())
 
 
 def _convert_private_key_to_pem(private_key) -> bytes:
@@ -240,9 +232,9 @@ async def _async_verify_certificate(server_addr, signed_ssl_context):
             return leap_response
 
 
-def _generate_csr_with_ssl_context() -> (
-    Tuple[x509.CertificateSigningRequest, bytes, ssl.SSLContext]
-):
+def _generate_csr_with_ssl_context() -> Tuple[
+    x509.CertificateSigningRequest, bytes, ssl.SSLContext
+]:
     with tempfile.NamedTemporaryFile(delete=False) as lap_cert_temp_file:
         with tempfile.NamedTemporaryFile(delete=False) as lap_key_temp_file:
             try:
@@ -267,7 +259,9 @@ def _generate_csr_with_ssl_context() -> (
                 os.remove(lap_cert_temp_file.name)
 
 
-def _generate_signed_ssl_context(key_bytes_pem: bytes, cert_pem: str, ca_pem: str) -> ssl.SSLContext:
+def _generate_signed_ssl_context(
+    key_bytes_pem: bytes, cert_pem: str, ca_pem: str
+) -> ssl.SSLContext:
     with tempfile.NamedTemporaryFile(delete=False) as key_temp_file:
         key_temp_file.write(key_bytes_pem)
         key_temp_file.flush()

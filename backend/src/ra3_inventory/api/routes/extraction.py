@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -26,7 +25,10 @@ _LOG = logging.getLogger(__name__)
 async def extract_start(body: ExtractStartRequest, request: Request) -> ExtractStartResponse:
     bus = request.app.state.event_bus
     channel = await bus.create("extract")
-    asyncio.create_task(_run_extraction(request.app, channel.id, body))
+    bus.start_task(
+        _run_extraction(request.app, channel.id, body),
+        name=f"extraction-{channel.id}",
+    )
     return ExtractStartResponse(extract_id=channel.id)
 
 
@@ -44,8 +46,9 @@ async def _run_extraction(app, channel_id: str, body: ExtractStartRequest) -> No
     channel = await bus.get(channel_id)
     assert channel is not None
 
+    certs = None
     try:
-        certs = materialize_pairing(body.profile_serial)
+        certs = materialize_pairing(body.profile_serial, passphrase=body.disk_passphrase)
         if certs is None:
             raise RuntimeError(f"no pairing creds for profile {body.profile_serial}")
 
@@ -59,11 +62,13 @@ async def _run_extraction(app, channel_id: str, body: ExtractStartRequest) -> No
         await channel.publish({"phase": "connecting", "host": host})
 
         async def on_progress(event) -> None:
-            await channel.publish({
-                "phase": event.phase,
-                "detail": event.detail,
-                "progress": event.progress,
-            })
+            await channel.publish(
+                {
+                    "phase": event.phase,
+                    "detail": event.detail,
+                    "progress": event.progress,
+                }
+            )
 
         inventory = await extract_inventory(
             host=host,
@@ -77,29 +82,28 @@ async def _run_extraction(app, channel_id: str, body: ExtractStartRequest) -> No
         snapshot_path = write_snapshot(body.profile_serial, inventory)
 
         # Refresh profile metadata
-        if meta_path.exists():
-            meta = json.loads(meta_path.read_text())
-        else:
-            meta = {}
+        meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
         meta["last_seen"] = datetime.now(timezone.utc).isoformat()
-        if inventory.processor.FirmwareImage and inventory.processor.FirmwareImage.Firmware:
-            meta["firmware"] = inventory.processor.FirmwareImage.Firmware.DisplayName or meta.get("firmware")
+        meta["firmware"] = inventory.processor.firmware_display_name or meta.get("firmware")
         meta_path.write_text(json.dumps(meta, indent=2))
 
-        await channel.publish({
-            "phase": "success",
-            "detail": f"snapshot {snapshot_path.name}",
-            "filename": snapshot_path.name,
-            "device_count": len(inventory.devices),
-            "area_count": len(inventory.areas),
-            "duration_seconds": inventory.duration_seconds,
-        })
+        await channel.publish(
+            {
+                "phase": "success",
+                "detail": f"snapshot {snapshot_path.name}",
+                "filename": snapshot_path.name,
+                "device_count": len(inventory.devices),
+                "area_count": len(inventory.areas),
+                "duration_seconds": inventory.duration_seconds,
+            }
+        )
 
     except AlreadyConnectedError as exc:
         await channel.publish({"phase": "error", "error": str(exc), "kind": "already_connected"})
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _LOG.exception("extraction failed for %s", body.profile_serial)
         await channel.publish({"phase": "error", "error": repr(exc)})
     finally:
-        await asyncio.sleep(0.5)
-        await bus.drop(channel_id)
+        if certs is not None:
+            certs.cleanup()
+        await bus.finish(channel_id)

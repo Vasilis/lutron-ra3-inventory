@@ -37,9 +37,7 @@ def configure_logging(level: int | None = None) -> None:
     stderr.setFormatter(logging.Formatter(_FORMAT))
     root.addHandler(stderr)
 
-    fileh = logging.handlers.RotatingFileHandler(
-        log_file, maxBytes=2_000_000, backupCount=3
-    )
+    fileh = logging.handlers.RotatingFileHandler(log_file, maxBytes=2_000_000, backupCount=3)
     fileh.setFormatter(logging.Formatter(_FORMAT))
     root.addHandler(fileh)
 

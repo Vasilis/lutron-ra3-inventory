@@ -16,6 +16,7 @@ provides an encrypted on-disk fallback.
 from __future__ import annotations
 
 import logging
+from contextlib import suppress
 from typing import Literal
 
 try:
@@ -50,7 +51,7 @@ def is_available() -> bool:
         # backend is unhealthy.
         keyring.get_password(SERVICE_PREFIX + ".probe", "probe")
         return True
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _LOG.warning("Keyring backend unavailable: %r", exc)
         return False
 
@@ -85,7 +86,5 @@ def delete_pairing(serial: str) -> None:
         return
     service = _service(serial)
     for account in ("key", "cert", "ca"):
-        try:
+        with suppress(keyring.errors.PasswordDeleteError):
             keyring.delete_password(service, account)
-        except keyring.errors.PasswordDeleteError:
-            pass

@@ -10,7 +10,6 @@ them to mutually authenticate the client before the processor signs a
 device-specific certificate.
 """
 
-
 LAP_CA_PEM = """-----BEGIN CERTIFICATE-----
 MIIEsjCCA5qgAwIBAgIBATANBgkqhkiG9w0BAQ0FADCBlzELMAkGA1UEBhMCVVMx
 FTATBgNVBAgTDFBlbm5zeWx2YW5pYTElMCMGA1UEChMcTHV0cm9uIEVsZWN0cm9u

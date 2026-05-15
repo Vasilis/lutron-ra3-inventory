@@ -14,7 +14,6 @@ from pydantic import Field
 
 from ..models import RA3Model
 
-
 # ---- Profiles -------------------------------------------------------------
 
 
@@ -46,6 +45,7 @@ class ProfileCreated(RA3Model):
 class PairStartRequest(RA3Model):
     host: str
     name: str = "Default"
+    disk_passphrase: str | None = Field(default=None, min_length=1)
 
 
 class PairStartResponse(RA3Model):
@@ -58,6 +58,7 @@ class PairStartResponse(RA3Model):
 class ExtractStartRequest(RA3Model):
     profile_serial: str
     capture_raw: bool = False
+    disk_passphrase: str | None = Field(default=None, min_length=1)
 
 
 class ExtractStartResponse(RA3Model):

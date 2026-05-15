@@ -14,7 +14,7 @@ Layout under ``~/Library/Application Support/RA3Inventory/``:
           caseta.crt                  client cert
           caseta-bridge.crt           processor CA cert
         snapshots/
-          2026-05-15T14-30-00Z.json   one per extraction
+          2026-05-15T14-30-00.123456Z.json   one per extraction
           latest.json                 hardlink to most recent
           baseline.json               user-pinned baseline (for M4 diff)
 
@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import os
 import sys
+from contextlib import suppress
 from pathlib import Path
 
 APP_NAME = "RA3Inventory"
@@ -96,9 +97,7 @@ def ensure_profile_tree(serial: str) -> None:
     profile_dir(serial).mkdir(parents=True, exist_ok=True)
     cdir = certs_dir(serial)
     cdir.mkdir(parents=True, exist_ok=True)
-    try:
+    with suppress(OSError):
         cdir.chmod(0o700)
-    except OSError:
-        pass
     snapshots_dir(serial).mkdir(parents=True, exist_ok=True)
     logs_dir().mkdir(parents=True, exist_ok=True)

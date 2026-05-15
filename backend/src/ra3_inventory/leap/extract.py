@@ -25,8 +25,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable, Iterable
+from contextlib import suppress
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Iterable
+from typing import Any
 
 from ..models import (
     Area,
@@ -88,31 +90,33 @@ DEVICE_ENDPOINTS: tuple[str, ...] = (
 # newer firmware (26.03.12f000+) drops it — keypads are detected by
 # DeviceType instead. We still keep the field-based detection as an OR
 # fallback for older firmwares.
-KEYPAD_DEVICE_TYPES: frozenset[str] = frozenset({
-    "SunnataKeypad",
-    "SunnataHybridKeypad",
-    "SeeTouchKeypad",
-    "SeeTouchHybridKeypad",
-    "SeeTouchTabletopKeypad",
-    "SeeTouchInternational",
-    "GrafikTHybridKeypad",
-    "HomeownerKeypad",
-    "AlisseKeypad",
-    "PalladiomKeypad",
-    "PhantomKeypad",
-    "Pico1Button",
-    "Pico2Button",
-    "Pico2ButtonRaiseLower",
-    "Pico3Button",
-    "Pico3ButtonRaiseLower",
-    "Pico4Button",
-    "Pico4ButtonScene",
-    "Pico4ButtonZone",
-    "Pico4Button2Group",
-    "PaddleSwitchPico",
-    "FourGroupRemote",
-    "CasetaFourGroupRemote",
-})
+KEYPAD_DEVICE_TYPES: frozenset[str] = frozenset(
+    {
+        "SunnataKeypad",
+        "SunnataHybridKeypad",
+        "SeeTouchKeypad",
+        "SeeTouchHybridKeypad",
+        "SeeTouchTabletopKeypad",
+        "SeeTouchInternational",
+        "GrafikTHybridKeypad",
+        "HomeownerKeypad",
+        "AlisseKeypad",
+        "PalladiomKeypad",
+        "PhantomKeypad",
+        "Pico1Button",
+        "Pico2Button",
+        "Pico2ButtonRaiseLower",
+        "Pico3Button",
+        "Pico3ButtonRaiseLower",
+        "Pico4Button",
+        "Pico4ButtonScene",
+        "Pico4ButtonZone",
+        "Pico4Button2Group",
+        "PaddleSwitchPico",
+        "FourGroupRemote",
+        "CasetaFourGroupRemote",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +227,7 @@ class InventoryExtractor:
             if self._capture_raw:
                 self._raw[url] = {"status": None, "body": None, "error": "disconnected"}
             return None
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             _LOG.warning("Error reading %s: %r", url, exc)
             if self._capture_raw:
                 self._raw[url] = {"status": None, "body": None, "error": repr(exc)}
@@ -294,10 +298,8 @@ class InventoryExtractor:
         finally:
             if self._proto_task is not None and not self._proto_task.done():
                 self._proto_task.cancel()
-                try:
+                with suppress(asyncio.CancelledError, Exception):
                     await self._proto_task
-                except (asyncio.CancelledError, Exception):  # noqa: BLE001
-                    pass
 
     # -- phases -------------------------------------------------------------
 
@@ -314,7 +316,10 @@ class InventoryExtractor:
         # Capture raw echoes under the explicit DEVICE_ENDPOINT keys too,
         # so downstream code can rely on either naming.
         if self._capture_raw:
-            self._raw.setdefault("/device?where=IsThisDevice:true", self._raw.get("/device?where=IsThisDevice:true", {}))
+            self._raw.setdefault(
+                "/device?where=IsThisDevice:true",
+                self._raw.get("/device?where=IsThisDevice:true", {}),
+            )
 
         proc_list = _list_from_body(proc_body)
         if not proc_list or not isinstance(proc_list[0], dict):
@@ -341,10 +346,7 @@ class InventoryExtractor:
         # Newer RA 3 firmware (26.03.12+) drops the per-device ButtonGroups
         # field, so detect keypad-likes by DeviceType too. Either signal
         # qualifies a device.
-        targets = [
-            d for d in devices
-            if d.ButtonGroups or d.DeviceType in KEYPAD_DEVICE_TYPES
-        ]
+        targets = [d for d in devices if d.ButtonGroups or d.DeviceType in KEYPAD_DEVICE_TYPES]
         total = len(targets)
         for i, d in enumerate(targets, start=1):
             url = f"{d.href}/buttongroup/expanded"
@@ -387,9 +389,7 @@ class InventoryExtractor:
                 )
         return out
 
-    async def _fetch_zones_by_reference(
-        self, devices: Iterable[Device]
-    ) -> list[Zone]:
+    async def _fetch_zones_by_reference(self, devices: Iterable[Device]) -> list[Zone]:
         """Fallback when bare ``/zone`` returns ``not supported`` on newer firmware.
 
         Walks every ``LocalZones[].href`` across all devices, fetches each
@@ -481,15 +481,43 @@ class InventoryExtractor:
             processor=processor,
             project=Project.model_validate(project_obj),
             server=Server.model_validate(server_obj) if server_obj else None,
-            areas=[Area.model_validate(a) for a in _list_from_body(toplevel.get("/area")) if isinstance(a, dict)],
+            areas=[
+                Area.model_validate(a)
+                for a in _list_from_body(toplevel.get("/area"))
+                if isinstance(a, dict)
+            ],
             devices=devices,
             zones=resolved_zones,
-            buttons=[Button.model_validate(b) for b in _list_from_body(toplevel.get("/button")) if isinstance(b, dict)],
-            button_groups=[ButtonGroup.model_validate(bg) for bg in _list_from_body(toplevel.get("/buttongroup")) if isinstance(bg, dict)],
-            leds=[Led.model_validate(l) for l in _list_from_body(toplevel.get("/led")) if isinstance(l, dict)],
-            control_stations=[ControlStation.model_validate(cs) for cs in _list_from_body(toplevel.get("/controlstation")) if isinstance(cs, dict)],
-            area_scenes=[AreaScene.model_validate(s) for s in _list_from_body(toplevel.get("/areascene")) if isinstance(s, dict)],
-            virtual_buttons=[VirtualButton.model_validate(v) for v in _list_from_body(toplevel.get("/virtualbutton")) if isinstance(v, dict)],
+            buttons=[
+                Button.model_validate(b)
+                for b in _list_from_body(toplevel.get("/button"))
+                if isinstance(b, dict)
+            ],
+            button_groups=[
+                ButtonGroup.model_validate(bg)
+                for bg in _list_from_body(toplevel.get("/buttongroup"))
+                if isinstance(bg, dict)
+            ],
+            leds=[
+                Led.model_validate(led)
+                for led in _list_from_body(toplevel.get("/led"))
+                if isinstance(led, dict)
+            ],
+            control_stations=[
+                ControlStation.model_validate(cs)
+                for cs in _list_from_body(toplevel.get("/controlstation"))
+                if isinstance(cs, dict)
+            ],
+            area_scenes=[
+                AreaScene.model_validate(s)
+                for s in _list_from_body(toplevel.get("/areascene"))
+                if isinstance(s, dict)
+            ],
+            virtual_buttons=[
+                VirtualButton.model_validate(v)
+                for v in _list_from_body(toplevel.get("/virtualbutton"))
+                if isinstance(v, dict)
+            ],
             timeclock_event_rules=[
                 TimeclockEventRule.model_validate(t)
                 for t in _list_from_body(toplevel.get("/project/timeclockeventrules"))

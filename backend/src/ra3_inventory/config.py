@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import secrets
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from .storage.paths import app_data_dir, config_path
 
@@ -34,7 +33,7 @@ class Config:
     # ----------------------------------------------------------------------
 
     @classmethod
-    def load(cls) -> "Config":
+    def load(cls) -> Config:
         """Load from disk, or seed defaults if no config exists yet."""
         app_data_dir().mkdir(parents=True, exist_ok=True)
         p = config_path()
@@ -54,10 +53,15 @@ class Config:
     def save(self) -> None:
         """Persist non-secret keys."""
         p = config_path()
-        p.write_text(json.dumps({
-            "active_profile_serial": self.active_profile_serial,
-            "theme": self.theme,
-        }, indent=2))
+        p.write_text(
+            json.dumps(
+                {
+                    "active_profile_serial": self.active_profile_serial,
+                    "theme": self.theme,
+                },
+                indent=2,
+            )
+        )
 
 
 __all__ = ["Config"]

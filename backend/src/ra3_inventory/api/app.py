@@ -31,7 +31,7 @@ _LOG = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def _lifespan(app: FastAPI):
+async def _lifespan(_app: FastAPI):
     """Startup/shutdown hook."""
     _LOG.info("ra3-inventory %s starting", __version__)
     yield
@@ -77,9 +77,22 @@ def create_app(config: Config | None = None) -> FastAPI:
             @app.get("/{full_path:path}")
             async def spa_fallback(full_path: str) -> FileResponse | JSONResponse:
                 # Don't shadow the OpenAPI docs or API routes.
-                if full_path.startswith(("api/", "docs", "openapi.json", "health",
-                                         "version", "profiles", "pair", "extract",
-                                         "inventory", "snapshots", "export", "static")):
+                if full_path.startswith(
+                    (
+                        "api/",
+                        "docs",
+                        "openapi.json",
+                        "health",
+                        "version",
+                        "profiles",
+                        "pair",
+                        "extract",
+                        "inventory",
+                        "snapshots",
+                        "export",
+                        "static",
+                    )
+                ):
                     return JSONResponse({"detail": "Not Found"}, status_code=404)
                 return FileResponse(str(index_html))
         else:

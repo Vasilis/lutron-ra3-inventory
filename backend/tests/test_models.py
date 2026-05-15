@@ -58,9 +58,7 @@ def test_pico_button_count_derived() -> None:
     p3 = Pico.model_validate(
         {"href": "/device/1", "DeviceType": "Pico3ButtonRaiseLower", "Name": "x"}
     )
-    p4 = Pico.model_validate(
-        {"href": "/device/2", "DeviceType": "Pico4ButtonScene", "Name": "y"}
-    )
+    p4 = Pico.model_validate({"href": "/device/2", "DeviceType": "Pico4ButtonScene", "Name": "y"})
     assert p3.button_count == 3
     assert p4.button_count == 4
 

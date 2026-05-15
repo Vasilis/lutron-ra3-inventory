@@ -108,6 +108,22 @@ export function InventoryBrowser({
   }
 
   const inv = inventory.data;
+  // Zones in the selected area only. Devices in the area reference zones
+  // via LocalZones[], and zones also carry AssociatedArea.href; we union
+  // both so a zone that lives "in" the area but isn't currently bound to
+  // a local device still shows up.
+  const visibleZones = (() => {
+    if (!selectedAreaHref) return inv.zones;
+    const hrefs = new Set<string>();
+    for (const d of devicesByArea.get(selectedAreaHref) ?? []) {
+      for (const ref of d.LocalZones) hrefs.add(ref.href);
+    }
+    for (const z of inv.zones) {
+      if (z.AssociatedArea?.href === selectedAreaHref) hrefs.add(z.href);
+    }
+    return inv.zones.filter((z) => hrefs.has(z.href));
+  })();
+
   const visibleDevices = (
     selectedAreaHref ? (devicesByArea.get(selectedAreaHref) ?? []) : inv.devices
   )
@@ -153,7 +169,9 @@ export function InventoryBrowser({
           isExtracting={isExtracting}
           extractedAt={inv.extracted_at}
           deviceCount={inv.devices.length}
-          zoneCount={inv.zones.length}
+          totalZoneCount={inv.zones.length}
+          visibleZones={visibleZones}
+          isFiltered={selectedAreaHref !== null}
         />
       </div>
       <div className="min-h-0 overflow-hidden">

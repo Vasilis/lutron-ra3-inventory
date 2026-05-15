@@ -1,5 +1,10 @@
 import { useMemo } from "react";
 import { ArrowUpCircle, Loader2, RefreshCw } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppStore } from "@/stores/app-store";
@@ -23,7 +28,10 @@ interface DeviceListProps {
   isExtracting: boolean;
   extractedAt: string;
   deviceCount: number;
-  zoneCount: number;
+  totalZoneCount: number;
+  visibleZones: Zone[];
+  /** True when an area filter is active (count text reads differently). */
+  isFiltered: boolean;
 }
 
 /**
@@ -41,7 +49,9 @@ export function DeviceList({
   isExtracting,
   extractedAt,
   deviceCount,
-  zoneCount,
+  totalZoneCount,
+  visibleZones,
+  isFiltered,
 }: DeviceListProps) {
   const selected = useAppStore((s) => s.selectedDeviceHref);
   const setSelected = useAppStore((s) => s.setSelectedDeviceHref);
@@ -58,12 +68,32 @@ export function DeviceList({
           <div className="text-xs uppercase tracking-wide text-muted-foreground">
             {t("nav.devices")}
           </div>
-          <div className="text-sm">
-            {t("inventory.visible_counts", {
-              visible: devices.length,
-              devices: deviceCount,
-              zones: zoneCount,
-            })}
+          <div className="flex flex-wrap items-baseline gap-x-1.5 text-sm">
+            <span>
+              {isFiltered
+                ? `${devices.length} ${devices.length === 1 ? "device" : "devices"}`
+                : `${devices.length} of ${deviceCount} devices`}
+            </span>
+            <span className="text-muted-foreground">·</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="rounded text-sm underline decoration-dotted decoration-muted-foreground/60 underline-offset-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  disabled={visibleZones.length === 0}
+                >
+                  {visibleZones.length}
+                  {isFiltered
+                    ? ` of ${totalZoneCount} ${totalZoneCount === 1 ? "zone" : "zones"}`
+                    : ` ${visibleZones.length === 1 ? "zone" : "zones"}`}
+                </button>
+              </TooltipTrigger>
+              {visibleZones.length > 0 && (
+                <TooltipContent side="bottom" align="start" className="max-w-md p-0">
+                  <ZoneListTooltip zones={visibleZones} />
+                </TooltipContent>
+              )}
+            </Tooltip>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -138,6 +168,32 @@ export function DeviceList({
           </div>
         )}
       </ScrollArea>
+    </div>
+  );
+}
+
+function ZoneListTooltip({ zones }: { zones: Zone[] }) {
+  const sorted = [...zones].sort((a, b) =>
+    (a.Name ?? "").localeCompare(b.Name ?? "", undefined, {
+      sensitivity: "base",
+      numeric: true,
+    }),
+  );
+  return (
+    <div className="max-h-64 overflow-y-auto p-2">
+      <ul className="flex flex-col">
+        {sorted.map((z) => (
+          <li
+            key={z.href}
+            className="flex items-center justify-between gap-3 px-2 py-1 text-xs"
+          >
+            <span className="truncate font-medium">{z.Name ?? "(unnamed)"}</span>
+            <span className="shrink-0 text-muted-foreground">
+              {z.ControlType ?? ""}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

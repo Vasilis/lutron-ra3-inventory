@@ -70,3 +70,31 @@ export function countDevicesWithFirmwareUpdates(devices: Device[]): number {
   }
   return n;
 }
+
+const POSITION_PATTERN = /^Position\s+\d+$/i;
+
+/**
+ * Lutron defaults the ``Name`` field on ganged devices to ``Position 1``,
+ * ``Position 2``, etc. — fine for the integrator (it matches the physical
+ * slot in the gang) but useless at a glance. When we detect the fallback
+ * we substitute the parent area's name so the row reads "Den" instead of
+ * "Position 1". The position is still surfaced as a small grey tag next
+ * to the title so the disambiguation isn't lost.
+ */
+export function deviceDisplayName(
+  device: Device,
+  areasByHref: Map<string, Area>,
+): string {
+  const raw = device.Name ?? device.DeviceType;
+  if (!POSITION_PATTERN.test(raw)) return raw;
+  const area = device.AssociatedArea?.href
+    ? areasByHref.get(device.AssociatedArea.href)
+    : null;
+  if (area?.Name) return area.Name;
+  return raw;
+}
+
+/** True when ``device.Name`` is Lutron's default ganged-position placeholder. */
+export function hasPositionName(device: Device): boolean {
+  return device.Name ? POSITION_PATTERN.test(device.Name) : false;
+}

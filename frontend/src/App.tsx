@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
@@ -9,6 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ExtractionToast } from "@/features/extraction/ExtractionToast";
+import { InventoryBrowser } from "@/features/inventory/InventoryBrowser";
+import { PairingDialog } from "@/features/pairing/PairingDialog";
+import { ProfilePickerDialog } from "@/features/profiles/ProfilePickerDialog";
 import { WelcomeScreen } from "@/features/welcome/WelcomeScreen";
 import { t } from "@/i18n";
 import { ApiError, api } from "@/lib/api";
@@ -16,14 +21,19 @@ import { ApiError, api } from "@/lib/api";
 /**
  * Top-level routing logic.
  *
- * For M1 there's no router — the screen is determined by app state:
- *   - No profiles    → WelcomeScreen
- *   - Profiles exist → three-pane inventory browser (task #11)
- *
- * Once #11 lands this will route between the welcome state, the pairing
- * wizard, the extraction-in-progress overlay, and the three-pane browser.
+ * For M1 there's no router — the screen is determined by local app state:
+ *   - no chosen profile yet → WelcomeScreen
+ *   - paired / picked profile → three-pane inventory browser
  */
 export function App() {
+  const [pairingOpen, setPairingOpen] = useState(false);
+  const [profilePickerOpen, setProfilePickerOpen] = useState(false);
+  const [activeProfileSerial, setActiveProfileSerial] = useState<string | null>(
+    null,
+  );
+  const [extractTrigger, setExtractTrigger] = useState(0);
+  const [isExtracting, setIsExtracting] = useState(false);
+
   const profilesQuery = useQuery({
     queryKey: ["profiles"],
     queryFn: () => api.listProfiles(),
@@ -66,17 +76,37 @@ export function App() {
   const hasProfiles = (profilesQuery.data?.length ?? 0) > 0;
 
   return (
-    <AppShell>
-      <WelcomeScreen
-        hasExistingProfiles={hasProfiles}
-        onPair={() => {
-          /* task #11: open pairing wizard */
-        }}
-        onOpenExisting={() => {
-          /* task #11: route to inventory browser */
-        }}
+    <>
+      <AppShell>
+        {activeProfileSerial ? (
+          <InventoryBrowser
+            onExtract={() => setExtractTrigger((value) => value + 1)}
+            isExtracting={isExtracting}
+          />
+        ) : (
+          <WelcomeScreen
+            hasExistingProfiles={hasProfiles}
+            onPair={() => setPairingOpen(true)}
+            onOpenExisting={() => setProfilePickerOpen(true)}
+          />
+        )}
+      </AppShell>
+      <PairingDialog
+        open={pairingOpen}
+        onOpenChange={setPairingOpen}
+        onPaired={setActiveProfileSerial}
       />
-    </AppShell>
+      <ProfilePickerDialog
+        open={profilePickerOpen}
+        onOpenChange={setProfilePickerOpen}
+        onPicked={setActiveProfileSerial}
+      />
+      <ExtractionToast
+        trigger={extractTrigger}
+        profileSerial={activeProfileSerial}
+        onRunningChange={setIsExtracting}
+      />
+    </>
   );
 }
 

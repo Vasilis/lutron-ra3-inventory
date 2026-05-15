@@ -41,12 +41,14 @@ export function InventoryBrowser({
     },
   });
 
-  // Index areas by href for parent-path lookups; index devices by area.
-  const { areasByHref, devicesByArea } = useMemo(() => {
+  // Index areas + zones by href for label lookups, and bucket devices by area.
+  const { areasByHref, zonesByHref, devicesByArea } = useMemo(() => {
     const areasByHref = new Map<string, Area>();
+    const zonesByHref = new Map<string, import("@/lib/types").Zone>();
     const devicesByArea = new Map<string | null, Device[]>();
     if (inventory.data) {
       for (const a of inventory.data.areas) areasByHref.set(a.href, a);
+      for (const z of inventory.data.zones) zonesByHref.set(z.href, z);
       for (const d of inventory.data.devices) {
         const k = d.AssociatedArea?.href ?? null;
         const bucket = devicesByArea.get(k) ?? [];
@@ -54,7 +56,7 @@ export function InventoryBrowser({
         devicesByArea.set(k, bucket);
       }
     }
-    return { areasByHref, devicesByArea };
+    return { areasByHref, zonesByHref, devicesByArea };
   }, [inventory.data]);
 
   if (inventory.isPending) {
@@ -111,10 +113,10 @@ export function InventoryBrowser({
   )
     .slice()
     .sort((a, b) => {
-      // 1. Group by display name (area name for "Position N" devices,
-      //    real name otherwise).
-      const nameCmp = deviceDisplayName(a, areasByHref).localeCompare(
-        deviceDisplayName(b, areasByHref),
+      // 1. Group by display name (zone name when one zone, real name
+      //    when set, area name as fallback).
+      const nameCmp = deviceDisplayName(a, areasByHref, zonesByHref).localeCompare(
+        deviceDisplayName(b, areasByHref, zonesByHref),
         undefined,
         { sensitivity: "base", numeric: true },
       );
@@ -145,6 +147,7 @@ export function InventoryBrowser({
       <div className="min-h-0 overflow-hidden">
         <DeviceList
           devices={visibleDevices}
+          zonesByHref={zonesByHref}
           areasByHref={areasByHref}
           onExtract={onExtract}
           isExtracting={isExtracting}

@@ -44,7 +44,7 @@ export function DeviceDetail({
   ).filter((z): z is Zone => Boolean(z));
   const buttonGroups = buttonGroupExpansions[device.href];
   const update = firmwareUpdate(device.FirmwareImage);
-  const title = deviceDisplayName(device, areasByHref);
+  const title = deviceDisplayName(device, areasByHref, zonesByHref);
   const positionTag = hasPositionName(device) ? device.Name : null;
 
   return (

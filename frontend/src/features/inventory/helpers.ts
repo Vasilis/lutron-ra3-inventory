@@ -1,4 +1,4 @@
-import type { Area, Device, DeviceFirmwareImage } from "@/lib/types";
+import type { Area, Device, DeviceFirmwareImage, Zone } from "@/lib/types";
 
 export interface FirmwareUpdate {
   installed: string;
@@ -74,19 +74,40 @@ export function countDevicesWithFirmwareUpdates(devices: Device[]): number {
 const POSITION_PATTERN = /^Position\s+\d+$/i;
 
 /**
- * Lutron defaults the ``Name`` field on ganged devices to ``Position 1``,
- * ``Position 2``, etc. — fine for the integrator (it matches the physical
- * slot in the gang) but useless at a glance. When we detect the fallback
- * we substitute the parent area's name so the row reads "Den" instead of
- * "Position 1". The position is still surfaced as a small grey tag next
- * to the title so the disambiguation isn't lost.
+ * Best-effort meaningful label for a device.
+ *
+ * Priority:
+ *   1. A real ``device.Name`` (anything that isn't Lutron's default
+ *      ``Position N`` placeholder).
+ *   2. The name of the single zone this device controls, when it has
+ *      exactly one ``LocalZones`` entry. Zone names are integrator-set
+ *      and tend to be the most meaningful label in the whole database
+ *      ("Kitchen Island Pendants", "Living Room Sconces"), so this is
+ *      what dimmers / switches / shades / fans get.
+ *   3. The parent area's name — used for keypads, picos, remotes, and
+ *      sensors (no LocalZones), and for multi-zone devices where
+ *      picking one zone would be misleading.
+ *   4. Falls all the way back to the raw name / DeviceType when even
+ *      the area lookup fails.
+ *
+ * ``zonesByHref`` is optional so callers that don't have a zones index
+ * can still resolve labels — they just skip step 2.
  */
 export function deviceDisplayName(
   device: Device,
   areasByHref: Map<string, Area>,
+  zonesByHref?: Map<string, Zone>,
 ): string {
   const raw = device.Name ?? device.DeviceType;
-  if (!POSITION_PATTERN.test(raw)) return raw;
+  if (raw && !POSITION_PATTERN.test(raw)) return raw;
+
+  // One zone — use its name.
+  if (zonesByHref && device.LocalZones.length === 1) {
+    const z = zonesByHref.get(device.LocalZones[0]!.href);
+    if (z?.Name) return z.Name;
+  }
+
+  // Fall through to area name.
   const area = device.AssociatedArea?.href
     ? areasByHref.get(device.AssociatedArea.href)
     : null;
@@ -139,10 +160,11 @@ export interface DeviceGroup {
 export function groupAdjacentDevices(
   devices: Device[],
   areasByHref: Map<string, Area>,
+  zonesByHref?: Map<string, Zone>,
 ): DeviceGroup[] {
   const out: DeviceGroup[] = [];
   for (const d of devices) {
-    const displayName = deviceDisplayName(d, areasByHref);
+    const displayName = deviceDisplayName(d, areasByHref, zonesByHref);
     const last = out[out.length - 1];
     if (last && last.displayName === displayName && last.deviceType === d.DeviceType) {
       last.devices.push(d);

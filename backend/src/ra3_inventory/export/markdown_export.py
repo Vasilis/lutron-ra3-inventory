@@ -79,15 +79,31 @@ in the report.
 _POSITION_RE = re.compile(r"^Position\s+\d+$", re.IGNORECASE)
 
 
-def _position_display_name(d: Device, areas_by_href: dict[str, "Area"]) -> str:
-    """Substitute the parent area's name when ``Device.Name`` is ``Position N``.
+def _position_display_name(
+    d: Device,
+    areas_by_href: dict[str, "Area"],
+    zones_by_href: dict[str, "Zone"] | None = None,
+) -> str:
+    """Best-effort meaningful label for a device — mirrors the frontend's
+    ``deviceDisplayName`` priority order:
 
-    Mirrors the frontend's ``deviceDisplayName`` so live UI and exported
-    reports use the same label.
+    1. Real ``Device.Name`` (anything not matching ``Position N``).
+    2. The single zone's ``Name`` when ``LocalZones`` has exactly one
+       entry — zone names are the integrator's most meaningful labels.
+    3. Parent area's name.
+    4. The raw name / DeviceType as a last resort.
     """
     raw = d.Name or d.DeviceType
-    if not _POSITION_RE.match(raw):
+    if raw and not _POSITION_RE.match(raw):
         return raw
+
+    # Single-zone label
+    if zones_by_href is not None and len(d.LocalZones) == 1:
+        zone = zones_by_href.get(d.LocalZones[0].href)
+        if zone is not None and zone.Name:
+            return zone.Name
+
+    # Area fallback
     if d.AssociatedArea is not None and d.AssociatedArea.href in areas_by_href:
         area_name = areas_by_href[d.AssociatedArea.href].Name
         if area_name:
@@ -270,7 +286,7 @@ def _emit_remaining_sections(
                 lines.append("| Name | Type | Model | Serial | Firmware |")
                 lines.append("|---|---|---|---|---|")
                 for d in sorted(by_area[ahref], key=lambda x: (x.DeviceType, x.Name or "")):
-                    name = _position_display_name(d, areas_by_href)
+                    name = _position_display_name(d, areas_by_href, zones_by_href)
                     if d.Name and _POSITION_RE.match(d.Name) and d.Name != name:
                         name = f"{name} ({d.Name})"
                     lines.append(
@@ -337,7 +353,7 @@ def _emit_remaining_sections(
                 if d is None:
                     continue
                 ahref = d.AssociatedArea.href if d.AssociatedArea is not None else None
-                lines.append(f"### {_position_display_name(d, areas_by_href)} — `{dhref}`")
+                lines.append(f"### {_position_display_name(d, areas_by_href, zones_by_href)} — `{dhref}`")
                 lines.append(
                     f"_{d.DeviceType} {d.ModelNumber or ''} · "
                     f"Area: {area_path(ahref, areas_by_href) if ahref else '?'} · "
@@ -382,7 +398,7 @@ def _emit_remaining_sections(
                 ahref = d.AssociatedArea.href if d.AssociatedArea is not None else None
                 area_label = area_path(ahref, areas_by_href) if ahref else "?"
                 lines.append(
-                    f"| {_position_display_name(d, areas_by_href)} | "
+                    f"| {_position_display_name(d, areas_by_href, zones_by_href)} | "
                     f"{area_label} | {d.ModelNumber or '_(none)_'} | "
                     f"{', '.join(labels) if labels else '_(none)_'} |"
                 )

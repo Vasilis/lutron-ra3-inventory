@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppStore } from "@/stores/app-store";
 import { cn } from "@/lib/utils";
-import type { Area, Device } from "@/lib/types";
+import type { Area, Device, Zone } from "@/lib/types";
 import {
   areaPath,
   deviceDisplayName,
@@ -18,6 +18,7 @@ import { t } from "@/i18n";
 interface DeviceListProps {
   devices: Device[];
   areasByHref: Map<string, Area>;
+  zonesByHref: Map<string, Zone>;
   onExtract: () => void;
   isExtracting: boolean;
   extractedAt: string;
@@ -35,6 +36,7 @@ interface DeviceListProps {
 export function DeviceList({
   devices,
   areasByHref,
+  zonesByHref,
   onExtract,
   isExtracting,
   extractedAt,
@@ -45,8 +47,8 @@ export function DeviceList({
   const setSelected = useAppStore((s) => s.setSelectedDeviceHref);
 
   const groups = useMemo(
-    () => groupAdjacentDevices(devices, areasByHref),
-    [devices, areasByHref],
+    () => groupAdjacentDevices(devices, areasByHref, zonesByHref),
+    [devices, areasByHref, zonesByHref],
   );
 
   return (
@@ -104,13 +106,14 @@ export function DeviceList({
                   key={g.devices[0]!.href}
                   device={g.devices[0]!}
                   areasByHref={areasByHref}
+                  zonesByHref={zonesByHref}
                   active={selected === g.devices[0]!.href}
                   onSelect={() => setSelected(g.devices[0]!.href)}
                 />
               ) : (
                 <div
                   key={g.key}
-                  className="overflow-hidden rounded-lg border border-border bg-card/30"
+                  className="overflow-hidden rounded-lg border-2 border-border bg-card/30"
                 >
                   {g.devices.map((d, i) => (
                     <div
@@ -122,6 +125,7 @@ export function DeviceList({
                       <DeviceRow
                         device={d}
                         areasByHref={areasByHref}
+                        zonesByHref={zonesByHref}
                         active={selected === d.href}
                         onSelect={() => setSelected(d.href)}
                         inGroup
@@ -141,6 +145,7 @@ export function DeviceList({
 interface DeviceRowProps {
   device: Device;
   areasByHref: Map<string, Area>;
+  zonesByHref: Map<string, Zone>;
   active: boolean;
   onSelect: () => void;
   /** True when this row is inside a multi-device group card. Compact spacing. */
@@ -150,13 +155,14 @@ interface DeviceRowProps {
 function DeviceRow({
   device: d,
   areasByHref,
+  zonesByHref,
   active,
   onSelect,
   inGroup,
 }: DeviceRowProps) {
   const Icon = deviceCategoryIcon(d.DeviceType);
   const update = firmwareUpdate(d.FirmwareImage);
-  const title = deviceDisplayName(d, areasByHref);
+  const title = deviceDisplayName(d, areasByHref, zonesByHref);
   const positionTag = hasPositionName(d) ? d.Name : null;
 
   return (

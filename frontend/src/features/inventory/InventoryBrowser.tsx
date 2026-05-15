@@ -114,27 +114,33 @@ export function InventoryBrowser({
     : null;
 
   return (
-    <div className="grid h-full grid-cols-[18rem_1fr_24rem] divide-x divide-border">
-      <AreaTree
-        areas={inv.areas}
-        areasByHref={areasByHref}
-        devicesByArea={devicesByArea}
-      />
-      <DeviceList
-        devices={visibleDevices}
-        areasByHref={areasByHref}
-        onExtract={onExtract}
-        isExtracting={isExtracting}
-        extractedAt={inv.extracted_at}
-        deviceCount={inv.devices.length}
-        zoneCount={inv.zones.length}
-      />
-      <DeviceDetail
-        device={selectedDevice}
-        areasByHref={areasByHref}
-        zones={inv.zones}
-        buttonGroupExpansions={inv.button_group_expansions}
-      />
+    <div className="grid h-full min-h-0 grid-cols-[18rem_1fr_24rem] divide-x divide-border overflow-hidden">
+      <div className="min-h-0 overflow-hidden">
+        <AreaTree
+          areas={inv.areas}
+          areasByHref={areasByHref}
+          devicesByArea={devicesByArea}
+        />
+      </div>
+      <div className="min-h-0 overflow-hidden">
+        <DeviceList
+          devices={visibleDevices}
+          areasByHref={areasByHref}
+          onExtract={onExtract}
+          isExtracting={isExtracting}
+          extractedAt={inv.extracted_at}
+          deviceCount={inv.devices.length}
+          zoneCount={inv.zones.length}
+        />
+      </div>
+      <div className="min-h-0 overflow-hidden">
+        <DeviceDetail
+          device={selectedDevice}
+          areasByHref={areasByHref}
+          zones={inv.zones}
+          buttonGroupExpansions={inv.button_group_expansions}
+        />
+      </div>
     </div>
   );
 }

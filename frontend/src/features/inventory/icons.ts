@@ -1,18 +1,26 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Blinds,
   Box,
-  Cpu,
   Fan,
   Lightbulb,
   Plug,
   Power,
-  Radio,
   Sun,
   Thermometer,
-  ToggleLeft,
   Wifi,
 } from "lucide-react";
+import {
+  FourGroupRemoteIcon,
+  PicoIcon,
+  ProcessorIcon,
+  ShadeIcon,
+  SunnataDimmerIcon,
+  SunnataHybridKeypadIcon,
+  SunnataKeypadIcon,
+  TunableLightIcon,
+} from "@/components/lutron-icons";
+
+type IconComponent = LucideIcon | ((props: { className?: string }) => JSX.Element);
 
 const SHADE_TYPES = [
   "PalladiomShade",
@@ -99,20 +107,23 @@ const LAMP_TYPES = [
   "Lumaris",
 ] as const;
 
-export function deviceCategoryIcon(deviceType: string): LucideIcon {
+export function deviceCategoryIcon(deviceType: string): IconComponent {
   if (deviceType === "RadioRa3Processor" || deviceType === "JanusProcRA3")
-    return Cpu;
-  if ((KEYPAD_TYPES as readonly string[]).includes(deviceType))
-    return ToggleLeft;
-  if ((PICO_TYPES as readonly string[]).includes(deviceType)) return Radio;
-  if ((DIMMER_TYPES as readonly string[]).includes(deviceType))
-    return Lightbulb;
+    return ProcessorIcon;
+  if (deviceType === "FourGroupRemote" || deviceType === "CasetaFourGroupRemote")
+    return FourGroupRemoteIcon;
+  if (deviceType === "SunnataHybridKeypad") return SunnataHybridKeypadIcon;
+  if (deviceType === "SunnataKeypad") return SunnataKeypadIcon;
+  if (deviceType === "SunnataDimmer") return SunnataDimmerIcon;
+  if ((KEYPAD_TYPES as readonly string[]).includes(deviceType)) return SunnataKeypadIcon;
+  if ((PICO_TYPES as readonly string[]).includes(deviceType)) return PicoIcon;
+  if ((SHADE_TYPES as readonly string[]).includes(deviceType)) return ShadeIcon;
+  if (deviceType === "Lumaris") return TunableLightIcon;
+  if ((LAMP_TYPES as readonly string[]).includes(deviceType)) return Sun;
+  if ((DIMMER_TYPES as readonly string[]).includes(deviceType)) return Lightbulb;
   if ((SWITCH_TYPES as readonly string[]).includes(deviceType)) return Power;
   if ((FAN_TYPES as readonly string[]).includes(deviceType)) return Fan;
-  if ((SHADE_TYPES as readonly string[]).includes(deviceType)) return Blinds;
-  if ((SENSOR_TYPES as readonly string[]).includes(deviceType))
-    return Thermometer;
-  if ((LAMP_TYPES as readonly string[]).includes(deviceType)) return Sun;
+  if ((SENSOR_TYPES as readonly string[]).includes(deviceType)) return Thermometer;
   if (deviceType === "KeypadLED") return Wifi;
   if (deviceType.endsWith("Plug")) return Plug;
   return Box;

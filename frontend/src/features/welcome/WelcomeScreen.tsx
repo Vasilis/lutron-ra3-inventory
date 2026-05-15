@@ -26,8 +26,9 @@ export function WelcomeScreen({
   hasExistingProfiles,
 }: WelcomeScreenProps) {
   return (
-    <div className="flex min-h-full items-center justify-center px-6 py-12">
-      <Card className="w-full max-w-xl">
+    <div className="h-full overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center px-6 py-12">
+        <Card className="w-full max-w-xl">
         <CardHeader className="items-center text-center">
           <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-primary/15 text-primary">
             <Zap className="size-6" />
@@ -48,7 +49,8 @@ export function WelcomeScreen({
             </Button>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

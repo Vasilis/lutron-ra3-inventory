@@ -139,23 +139,40 @@ export interface DeviceGroup {
   key: string;
   /** All devices in the group, in their already-sorted order. */
   devices: Device[];
-  /** Display name of the group (area name for "Position N" runs). */
+  /** Display name of the group (zone/area name of the first device). */
   displayName: string;
   /** Shared DeviceType. */
   deviceType: string;
 }
 
 /**
- * Cluster adjacent devices that share the same display name + DeviceType
- * into a single group. Used by the device list so the visual treatment
- * of a multi-gang set of dimmers (or keypads, shades, etc.) is a thin
- * border around the run rather than a bare succession of identical-
- * looking rows.
+ * Stable key for "which gang does this device belong to."
  *
- * Expects ``devices`` to be already sorted — see InventoryBrowser's
- * three-level sort (name → type → position). Two devices with the same
- * (displayName, deviceType) but separated by an unrelated device in
- * between will form *two* groups, not one.
+ *  - When ``AssociatedControlStation`` is set, that href + DeviceType
+ *    becomes the key. A multi-gang Sunnata keypad set all sharing one
+ *    control station collapses into a single group even if each
+ *    position resolves to a different zone-name label.
+ *  - Wireless devices (Picos, sensors, the processor) have no control
+ *    station — they get a unique ``solo:<href>`` key so they never
+ *    group with anyone else.
+ *
+ * Splitting on DeviceType means a gang that mixes a dimmer and a
+ * keypad renders as two adjacent boxes rather than one mixed box.
+ */
+export function deviceGroupKey(d: Device): string {
+  const cs = d.AssociatedControlStation?.href;
+  return cs ? `gang:${cs}:${d.DeviceType}` : `solo:${d.href}`;
+}
+
+/**
+ * Cluster adjacent devices that share their ``deviceGroupKey`` into a
+ * single group. Used by the device list so the visual treatment of a
+ * multi-gang set of dimmers/keypads/shades is a thin border around the
+ * run rather than a bare succession of similar-looking rows.
+ *
+ * Expects ``devices`` to be already sorted by their group key — see
+ * InventoryBrowser's sort. Devices with the same key but separated by
+ * an unrelated device in between will form *two* groups, not one.
  */
 export function groupAdjacentDevices(
   devices: Device[],
@@ -164,13 +181,14 @@ export function groupAdjacentDevices(
 ): DeviceGroup[] {
   const out: DeviceGroup[] = [];
   for (const d of devices) {
+    const key = deviceGroupKey(d);
     const displayName = deviceDisplayName(d, areasByHref, zonesByHref);
     const last = out[out.length - 1];
-    if (last && last.displayName === displayName && last.deviceType === d.DeviceType) {
+    if (last && last.key === key) {
       last.devices.push(d);
     } else {
       out.push({
-        key: `${displayName}__${d.DeviceType}__${d.href}`,
+        key,
         devices: [d],
         displayName,
         deviceType: d.DeviceType,

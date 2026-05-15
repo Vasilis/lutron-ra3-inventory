@@ -10,7 +10,12 @@ import { ApiError } from "@/lib/api";
 import { AreaTree } from "./AreaTree";
 import { DeviceList } from "./DeviceList";
 import { DeviceDetail } from "./DeviceDetail";
-import { deviceDisplayName, devicePositionNumber } from "./helpers";
+import {
+  areaPath,
+  deviceDisplayName,
+  deviceGroupKey,
+  devicePositionNumber,
+} from "./helpers";
 
 interface InventoryBrowserProps {
   onExtract: () => void;
@@ -129,22 +134,33 @@ export function InventoryBrowser({
   )
     .slice()
     .sort((a, b) => {
-      // 1. Group by display name (zone name when one zone, real name
-      //    when set, area name as fallback).
-      const nameCmp = deviceDisplayName(a, areasByHref, zonesByHref).localeCompare(
+      // 1. Area path — keeps all of "Den" or "Primary Bedroom" together
+      //    regardless of which gang or device type.
+      const areaA = areaPath(a.AssociatedArea?.href ?? null, areasByHref);
+      const areaB = areaPath(b.AssociatedArea?.href ?? null, areasByHref);
+      const areaCmp = areaA.localeCompare(areaB, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+      if (areaCmp !== 0) return areaCmp;
+      // 2. Group key (control-station + DeviceType, or unique-per-device
+      //    for wireless gear). Keeps every position of a single physical
+      //    gang adjacent so they can land in one bordered card.
+      const groupA = deviceGroupKey(a);
+      const groupB = deviceGroupKey(b);
+      if (groupA !== groupB) return groupA.localeCompare(groupB);
+      // 3. Order by numeric position within a gang so "Position 2"
+      //    comes before "Position 10", not after "Position 1".
+      const posCmp = devicePositionNumber(a) - devicePositionNumber(b);
+      if (posCmp !== 0) return posCmp;
+      // 4. Final tie-break: alphabetic on the resolved label (zone name
+      //    or fallback) so devices with the same position number across
+      //    different gangs stay in a stable order.
+      return deviceDisplayName(a, areasByHref, zonesByHref).localeCompare(
         deviceDisplayName(b, areasByHref, zonesByHref),
         undefined,
         { sensitivity: "base", numeric: true },
       );
-      if (nameCmp !== 0) return nameCmp;
-      // 2. Cluster by device type within the same display name —
-      //    keypads next to keypads, dimmers next to dimmers, shades
-      //    next to shades, all in the same area's block.
-      const typeCmp = a.DeviceType.localeCompare(b.DeviceType);
-      if (typeCmp !== 0) return typeCmp;
-      // 3. Order by numeric position within a gang so "Position 2"
-      //    comes before "Position 10", not after "Position 1".
-      return devicePositionNumber(a) - devicePositionNumber(b);
     });
   const selectedDevice = selectedDeviceHref
     ? (inv.devices.find((d) => d.href === selectedDeviceHref) ??

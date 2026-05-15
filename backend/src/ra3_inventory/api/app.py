@@ -19,7 +19,6 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .. import __version__
@@ -62,41 +61,21 @@ def create_app(config: Config | None = None) -> FastAPI:
     app.include_router(snapshots.router)
     app.include_router(export.router)
 
-    # Static frontend assets, if the build step has populated them
+    # Static frontend assets, if the build step has populated them.
+    #
+    # StaticFiles(html=True) serves index.html on "/" and falls back to it for
+    # any path that doesn't match a real file in the dist (the SPA-routing
+    # convention). API routers are registered BEFORE this mount, so they win
+    # the matching contest for /health, /profiles, etc.
     try:
         web_root = importlib.resources.files("ra3_inventory") / "_web" / "static"  # type: ignore[arg-type]
         index_html = web_root / "index.html"
         if index_html.is_file():
-            app.mount("/static", StaticFiles(directory=str(web_root)), name="static")
-
-            @app.get("/", include_in_schema=False)
-            async def serve_index() -> FileResponse:
-                return FileResponse(str(index_html))
-
-            # SPA fallback: any non-API GET that doesn't match a route serves index.html.
-            # ``response_model=None`` is required because FastAPI can't build a
-            # Pydantic response model from ``FileResponse | JSONResponse``.
-            @app.get("/{full_path:path}", response_model=None, include_in_schema=False)
-            async def spa_fallback(full_path: str) -> FileResponse | JSONResponse:
-                # Don't shadow the OpenAPI docs or API routes.
-                if full_path.startswith(
-                    (
-                        "api/",
-                        "docs",
-                        "openapi.json",
-                        "health",
-                        "version",
-                        "profiles",
-                        "pair",
-                        "extract",
-                        "inventory",
-                        "snapshots",
-                        "export",
-                        "static",
-                    )
-                ):
-                    return JSONResponse({"detail": "Not Found"}, status_code=404)
-                return FileResponse(str(index_html))
+            app.mount(
+                "/",
+                StaticFiles(directory=str(web_root), html=True),
+                name="frontend",
+            )
         else:
             _LOG.info("No frontend dist found — running API-only")
             _attach_placeholder(app)

@@ -69,12 +69,14 @@ def create_app(config: Config | None = None) -> FastAPI:
         if index_html.is_file():
             app.mount("/static", StaticFiles(directory=str(web_root)), name="static")
 
-            @app.get("/")
+            @app.get("/", include_in_schema=False)
             async def serve_index() -> FileResponse:
                 return FileResponse(str(index_html))
 
             # SPA fallback: any non-API GET that doesn't match a route serves index.html.
-            @app.get("/{full_path:path}")
+            # ``response_model=None`` is required because FastAPI can't build a
+            # Pydantic response model from ``FileResponse | JSONResponse``.
+            @app.get("/{full_path:path}", response_model=None, include_in_schema=False)
             async def spa_fallback(full_path: str) -> FileResponse | JSONResponse:
                 # Don't shadow the OpenAPI docs or API routes.
                 if full_path.startswith(

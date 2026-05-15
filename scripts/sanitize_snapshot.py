@@ -35,7 +35,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend" / "src"))
 
-from ra3_inventory.sanitize import sanitize_snapshot_data  # noqa: E402
+from ra3_inventory.sanitize import sanitize_snapshot_data
 
 
 def main() -> int:
@@ -54,7 +54,7 @@ def main() -> int:
     print(f"Wrote sanitized snapshot: {out}")
 
     # Quick round-trip test
-    from ra3_inventory.models import ProcessorInventory  # noqa: E402
+    from ra3_inventory.models import ProcessorInventory
 
     inv = ProcessorInventory.model_validate(data)
     print(

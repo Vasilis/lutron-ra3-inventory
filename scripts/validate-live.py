@@ -28,23 +28,17 @@ import tempfile
 from pathlib import Path
 
 from ra3_inventory.leap import connect_leap, extract_inventory
-from ra3_inventory.models import parse_device, RadioRa3Processor
+from ra3_inventory.models import RadioRa3Processor, parse_device
 from ra3_inventory.storage import keychain, materialize_pairing, write_snapshot
 from ra3_inventory.storage.certs import store_pairing_to_disk
 from ra3_inventory.storage.paths import ensure_profile_tree, profile_json_path
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s %(levelname)-5s %(name)s: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-5s %(name)s: %(message)s")
 _LOG = logging.getLogger("validate-live")
 
 
 def _on_progress(event) -> None:
-    pct = (
-        f"{int((event.progress or 0) * 100):3d}%"
-        if event.progress is not None
-        else "  -"
-    )
+    pct = f"{int((event.progress or 0) * 100):3d}%" if event.progress is not None else "  -"
     print(f"  [{pct}] {event.phase:<22s} {event.detail}", flush=True)
 
 
@@ -81,7 +75,7 @@ async def _derive_serial(host: str, certs_tmp: Path) -> tuple[str, RadioRa3Proce
         proto_task.cancel()
         try:
             await proto_task
-        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+        except (asyncio.CancelledError, Exception):
             pass
 
 
@@ -99,9 +93,7 @@ async def _run(args: argparse.Namespace) -> int:
             shutil.copy2(src / n, tmp / n)
         _LOG.info("Probing %s for processor serial...", args.host)
         serial, processor = await _derive_serial(args.host, tmp)
-        _LOG.info(
-            "Processor serial: %s (%s)", serial, processor.Name or processor.ModelNumber
-        )
+        _LOG.info("Processor serial: %s (%s)", serial, processor.Name or processor.ModelNumber)
 
         # Install certs into the profile tree or Keychain.
         ensure_profile_tree(serial)
@@ -192,9 +184,7 @@ async def _run(args: argparse.Namespace) -> int:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(
-        description="Live-validate the backend against a real RA3"
-    )
+    p = argparse.ArgumentParser(description="Live-validate the backend against a real RA3")
     p.add_argument("--host", required=True, help="processor IP")
     p.add_argument(
         "--certs-dir",

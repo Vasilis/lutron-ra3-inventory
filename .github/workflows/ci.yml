@@ -4,6 +4,13 @@ on:
   push:
   pull_request:
 
+# Cancel an in-flight run when a newer commit arrives on the same ref. Main
+# is exempt so a tag/release run that races a follow-up push to main isn't
+# stomped.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -15,6 +22,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
       - run: python -m pip install -e ".[dev]"
       - run: ruff check src tests ../scripts
       - run: ruff format --check src tests ../scripts
@@ -37,3 +46,54 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run build
+
+  # Smoke-test macOS packaging on every change so a packaging regression
+  # surfaces before tag time. We stop at `briefcase build` (no `package`)
+  # because the .dmg step needs a signing identity that isn't available to
+  # the public runner — release.yml handles the signed-DMG path on tags.
+  package-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Copy frontend bundle into backend static dir
+        run: bash scripts/copy-frontend-dist.sh
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      # Briefcase downloads the Python support package and stub binary on
+      # first run (~200 MB). Cache the lot keyed on the Python version so
+      # subsequent runs are quick.
+      - name: Cache briefcase support packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.briefcase
+            backend/build
+          key: briefcase-${{ runner.os }}-py3.12-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: |
+            briefcase-${{ runner.os }}-py3.12-
+
+      - name: Install build deps
+        working-directory: backend
+        run: python -m pip install -e ".[build]"
+      - name: Briefcase create
+        working-directory: backend
+        run: briefcase create macOS --no-input
+      - name: Briefcase build
+        working-directory: backend
+        run: briefcase build macOS --no-input

@@ -14,5 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Verified RA 3 LEAP endpoint reference (`docs/leap-protocol-notes.md`).
 - Desktop UI for pairing, profile selection, inventory browsing, and export.
 - Native-save export workflow with recovery, technical, and share-safe report presets.
+- CI macOS packaging smoke job (`briefcase create` + `build`) on every push.
+- Tag-triggered release workflow that builds an ad-hoc-signed `.dmg` and
+  uploads it to the GitHub release. Signing/notarization wiring stubbed
+  in `docs/packaging-macos.md`.
 
 [Unreleased]: https://github.com/Vasilis/lutron-ra3-inventory/compare/HEAD

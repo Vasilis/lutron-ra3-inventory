@@ -325,165 +325,167 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
         </DialogHeader>
 
         <div className="-mr-3 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-3">
-        <section className="flex flex-col gap-2">
-          <Label>{t("export.preset")}</Label>
-          <div className="grid grid-cols-3 gap-2">
-            {(["recovery", "technical", "share"] as const).map((value) => (
-              <Button
-                key={value}
-                type="button"
-                variant={preset === value ? "default" : "outline"}
-                onClick={() => applyPreset(value)}
-                className="h-auto flex-col items-start gap-0.5 px-3 py-2 text-left"
-                disabled={busy}
-              >
-                <span className="text-sm">{t(`export.preset.${value}`)}</span>
-                <span className="text-xs font-normal opacity-75">
-                  {t(`export.preset.${value}_help`)}
-                </span>
-              </Button>
-            ))}
-          </div>
-        </section>
-
-        <section className="flex flex-col gap-2">
-          <Label>{t("export.format")}</Label>
-          <div className="grid grid-cols-4 gap-2">
-            {(Object.keys(FORMAT_META) as Format[]).map((f) => {
-              const F = FORMAT_META[f];
-              const Icon = F.icon;
-              return (
+          <section className="flex flex-col gap-2">
+            <Label>{t("export.preset")}</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["recovery", "technical", "share"] as const).map((value) => (
                 <Button
-                  key={f}
+                  key={value}
                   type="button"
-                  variant={f === format ? "default" : "outline"}
-                  onClick={() => {
-                    setPreset("custom");
-                    setFormat(f);
-                  }}
-                  className="h-14 flex-col gap-1"
+                  variant={preset === value ? "default" : "outline"}
+                  onClick={() => applyPreset(value)}
+                  className="h-auto flex-col items-start gap-0.5 px-3 py-2 text-left"
                   disabled={busy}
                 >
-                  <Icon className="size-4" />
-                  <span className="text-xs">{F.label}</span>
+                  <span className="text-sm">{t(`export.preset.${value}`)}</span>
+                  <span className="text-xs font-normal opacity-75">
+                    {t(`export.preset.${value}_help`)}
+                  </span>
                 </Button>
-              );
-            })}
-          </div>
-        </section>
-
-        {meta.supportsSections && (
-          <section className="flex flex-col gap-3 border-t border-border pt-4">
-            <div className="flex items-center justify-between">
-              <Label>{t("export.sections")}</Label>
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  type="button"
-                  onClick={() => setAll(true)}
-                  disabled={allSelected || busy}
-                >
-                  All
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  type="button"
-                  onClick={() => setAll(false)}
-                  disabled={noneSelected || busy}
-                >
-                  None
-                </Button>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-              {SECTIONS.map((s) => (
-                <Checkbox
-                  key={s.key}
-                  checked={selectedSections.has(s.key)}
-                  onChange={() => toggle(s.key)}
-                  label={t(s.i18nKey)}
-                  disabled={busy}
-                />
               ))}
             </div>
-            <div className="mt-1 flex flex-col gap-1 rounded-md bg-muted/40 p-3">
-              <Checkbox
-                checked={verbose}
-                onChange={() => {
-                  setPreset("custom");
-                  setVerbose((v) => !v);
-                }}
-                disabled={busy}
-                label={
-                  <span className="flex flex-col">
-                    <span className="font-medium">{t("export.verbose")}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {t("export.verbose_help")}
-                    </span>
-                  </span>
-                }
-              />
+          </section>
+
+          <section className="flex flex-col gap-2">
+            <Label>{t("export.format")}</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {(Object.keys(FORMAT_META) as Format[]).map((f) => {
+                const F = FORMAT_META[f];
+                const Icon = F.icon;
+                return (
+                  <Button
+                    key={f}
+                    type="button"
+                    variant={f === format ? "default" : "outline"}
+                    onClick={() => {
+                      setPreset("custom");
+                      setFormat(f);
+                    }}
+                    className="h-14 flex-col gap-1"
+                    disabled={busy}
+                  >
+                    <Icon className="size-4" />
+                    <span className="text-xs">{F.label}</span>
+                  </Button>
+                );
+              })}
             </div>
           </section>
-        )}
 
-        <section className="rounded-md border border-border bg-muted/30 p-3">
-          <Checkbox
-            checked={sanitized}
-            onChange={() => {
-              setPreset("custom");
-              setSanitized((value) => !value);
-            }}
-            disabled={busy}
-            label={
-              <span className="flex flex-col">
-                <span className="font-medium">{t("export.sanitized")}</span>
-                <span className="text-xs text-muted-foreground">
-                  {t("export.sanitized_help")}
-                </span>
-              </span>
-            }
-          />
-        </section>
-
-        {hasContent && (
-          <section className="flex flex-col gap-2 border-t border-border pt-4">
-            <Label>
-              {meta.isText ? t("export.preview") : t("export.binary_ready")}
-            </Label>
-            {meta.isText && textPreview !== null ? (
-              <textarea
-                ref={textareaRef}
-                readOnly
-                value={textPreview}
-                className="h-[24rem] resize-none rounded-md border border-border bg-background p-3 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                spellCheck={false}
-              />
-            ) : (
-              <div className="rounded-md border border-border bg-card/40 p-4 text-sm text-muted-foreground">
-                {meta.label} bundle generated (
-                {Math.round((binaryBlob?.size ?? 0) / 1024)} KB). Click{" "}
-                <span className="font-medium">Save to file…</span> to write it
-                to disk.
+          {meta.supportsSections && (
+            <section className="flex flex-col gap-3 border-t border-border pt-4">
+              <div className="flex items-center justify-between">
+                <Label>{t("export.sections")}</Label>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    type="button"
+                    onClick={() => setAll(true)}
+                    disabled={allSelected || busy}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    type="button"
+                    onClick={() => setAll(false)}
+                    disabled={noneSelected || busy}
+                  >
+                    None
+                  </Button>
+                </div>
               </div>
-            )}
-          </section>
-        )}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                {SECTIONS.map((s) => (
+                  <Checkbox
+                    key={s.key}
+                    checked={selectedSections.has(s.key)}
+                    onChange={() => toggle(s.key)}
+                    label={t(s.i18nKey)}
+                    disabled={busy}
+                  />
+                ))}
+              </div>
+              <div className="mt-1 flex flex-col gap-1 rounded-md bg-muted/40 p-3">
+                <Checkbox
+                  checked={verbose}
+                  onChange={() => {
+                    setPreset("custom");
+                    setVerbose((v) => !v);
+                  }}
+                  disabled={busy}
+                  label={
+                    <span className="flex flex-col">
+                      <span className="font-medium">{t("export.verbose")}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {t("export.verbose_help")}
+                      </span>
+                    </span>
+                  }
+                />
+              </div>
+            </section>
+          )}
 
-        {status.kind === "error" && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
-            <span className="font-medium text-destructive">Export failed:</span>{" "}
-            <span className="text-foreground/80">{status.message}</span>
-          </div>
-        )}
-        {status.kind === "saved" && (
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-foreground/80">
-            <span className="font-medium text-emerald-500">Saved to</span>{" "}
-            <code className="font-mono">{status.path}</code>
-          </div>
-        )}
+          <section className="rounded-md border border-border bg-muted/30 p-3">
+            <Checkbox
+              checked={sanitized}
+              onChange={() => {
+                setPreset("custom");
+                setSanitized((value) => !value);
+              }}
+              disabled={busy}
+              label={
+                <span className="flex flex-col">
+                  <span className="font-medium">{t("export.sanitized")}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("export.sanitized_help")}
+                  </span>
+                </span>
+              }
+            />
+          </section>
+
+          {hasContent && (
+            <section className="flex flex-col gap-2 border-t border-border pt-4">
+              <Label>
+                {meta.isText ? t("export.preview") : t("export.binary_ready")}
+              </Label>
+              {meta.isText && textPreview !== null ? (
+                <textarea
+                  ref={textareaRef}
+                  readOnly
+                  value={textPreview}
+                  className="h-[24rem] resize-none rounded-md border border-border bg-background p-3 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  spellCheck={false}
+                />
+              ) : (
+                <div className="rounded-md border border-border bg-card/40 p-4 text-sm text-muted-foreground">
+                  {meta.label} bundle generated (
+                  {Math.round((binaryBlob?.size ?? 0) / 1024)} KB). Click{" "}
+                  <span className="font-medium">Save to file…</span> to write it
+                  to disk.
+                </div>
+              )}
+            </section>
+          )}
+
+          {status.kind === "error" && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
+              <span className="font-medium text-destructive">
+                Export failed:
+              </span>{" "}
+              <span className="text-foreground/80">{status.message}</span>
+            </div>
+          )}
+          {status.kind === "saved" && (
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-foreground/80">
+              <span className="font-medium text-emerald-500">Saved to</span>{" "}
+              <code className="font-mono">{status.path}</code>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="shrink-0">

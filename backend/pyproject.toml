@@ -94,7 +94,8 @@ processor reports — shade SKUs, firmware versions, full keypad button \
 programming, area scenes, and timeclock event rules — that the high-level \
 community library discards.
 """
-icon = "../docs/icon"
+# icon = "../docs/icon"  # TODO: design + commit docs/icon.icns; briefcase
+# falls back to the default Python feather icon when this is unset.
 sources = ["src/ra3_inventory"]
 test_sources = ["tests"]
 
@@ -176,6 +177,10 @@ ignore = [
     "SIM",
     "ARG",
 ]
+# CLI utilities — ASYNC rules are about long-lived servers, not one-shot
+# scripts; SIM/S110 quibble over try/except/pass patterns that are fine
+# in a "best-effort cleanup" finally block.
+"../scripts/**" = ["ASYNC", "SIM", "S110"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["ra3_inventory"]

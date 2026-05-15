@@ -3,6 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Area, ButtonGroup, Device, Zone } from "@/lib/types";
 import { areaPath, firmwareDisplay } from "@/features/inventory/helpers";
 import { deviceCategoryIcon } from "@/features/inventory/icons";
+import { t } from "@/i18n";
 
 interface DeviceDetailProps {
   device: Device | null;
@@ -25,7 +26,7 @@ export function DeviceDetail({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground">
         <Hash className="size-4" />
-        Select a device to see its details.
+        {t("inventory.select_device")}
       </div>
     );
   }
@@ -58,23 +59,26 @@ export function DeviceDetail({
         <DetailGrid
           rows={[
             [
-              "Area",
+              t("inventory.area"),
               areaPath(device.AssociatedArea?.href ?? null, areasByHref),
             ],
             [
-              "Serial",
+              t("inventory.serial"),
               device.SerialNumber == null ? "—" : String(device.SerialNumber),
             ],
-            ["Firmware", firmwareDisplay(device.FirmwareImage) ?? "—"],
-            ["Addressed", device.AddressedState ?? "—"],
-            ["href", device.href],
+            [
+              t("inventory.firmware"),
+              firmwareDisplay(device.FirmwareImage) ?? "—",
+            ],
+            [t("inventory.addressed"), device.AddressedState ?? "—"],
+            [t("inventory.href"), device.href],
           ]}
         />
 
         {localZones.length > 0 && (
           <section>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Zones
+              {t("nav.zones")}
             </h3>
             <ul className="flex flex-col gap-1 rounded-lg border border-border bg-card/40">
               {localZones.map((z) => (
@@ -96,7 +100,7 @@ export function DeviceDetail({
         {buttonGroups && buttonGroups.length > 0 && (
           <section>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Buttons
+              {t("inventory.buttons")}
             </h3>
             <ul className="flex flex-col gap-1 rounded-lg border border-border bg-card/40">
               {buttonGroups.flatMap((bg) =>
@@ -109,7 +113,9 @@ export function DeviceDetail({
                       #{btn.ButtonNumber ?? "?"}
                     </span>
                     <span className="truncate">
-                      {btn.Engraving?.Text ?? btn.Name ?? "(unnamed)"}
+                      {btn.Engraving?.Text ??
+                        btn.Name ??
+                        t("inventory.unnamed")}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {btn.ButtonType ?? ""}

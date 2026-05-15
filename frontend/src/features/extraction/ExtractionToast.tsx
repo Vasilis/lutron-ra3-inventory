@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { api, extractEventsUrl } from "@/lib/api";
 import { subscribeSse, type SseSubscription } from "@/lib/sse";
 import type { ExtractEvent } from "@/lib/types";
+import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -42,7 +43,7 @@ export function ExtractionToast({
   useEffect(() => {
     if (trigger === 0 || !profileSerial) return;
     let cancelled = false;
-    setPhase({ label: "Starting extraction…", progress: null });
+    setPhase({ label: t("extract.starting"), progress: null });
     setError(null);
     setSuccess(null);
     onRunningChange?.(true);
@@ -57,7 +58,7 @@ export function ExtractionToast({
           onEvent: (event) => {
             if (event.phase === "success" || event.phase === "done") {
               setPhase(null);
-              setSuccess(event.detail ?? "Extraction complete.");
+              setSuccess(event.detail ?? t("extract.success"));
               subRef.current?.close();
               subRef.current = null;
               qc.invalidateQueries({ queryKey: ["inventory"] });
@@ -68,8 +69,8 @@ export function ExtractionToast({
               setPhase(null);
               const msg =
                 event.kind === "already_connected"
-                  ? "Another LEAP client is connected. Close Home Assistant / HomeBridge and retry."
-                  : (event.error ?? "Extraction failed.");
+                  ? t("extract.already_connected")
+                  : (event.error ?? t("extract.error"));
               setError(msg);
               subRef.current?.close();
               subRef.current = null;
@@ -126,7 +127,7 @@ export function ExtractionToast({
             <>
               <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                 <Loader2 className="size-4 animate-spin text-primary" />
-                Extracting inventory…
+                {t("extract.running")}
               </div>
               <div className="text-xs text-muted-foreground">{phase.label}</div>
             </>
@@ -135,7 +136,7 @@ export function ExtractionToast({
             <>
               <div className="mb-2 flex items-center gap-2 text-sm font-medium text-destructive">
                 <AlertCircle className="size-4" />
-                Extraction failed
+                {t("extract.error")}
               </div>
               <div className="text-xs leading-snug text-muted-foreground">
                 {error}

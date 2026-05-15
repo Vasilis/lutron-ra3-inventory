@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { t } from "@/i18n";
 
 interface ProfilePickerDialogProps {
   open: boolean;
@@ -48,25 +49,24 @@ export function ProfilePickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Open existing profile</DialogTitle>
+          <DialogTitle>{t("profiles.open_title")}</DialogTitle>
           <DialogDescription>
-            Pick the processor profile you want to browse. The active profile is
-            what the inventory and export endpoints will operate on.
+            {t("profiles.open_description")}
           </DialogDescription>
         </DialogHeader>
 
         {profiles.isPending ? (
           <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            Loading profiles…
+            {t("profiles.loading")}
           </div>
         ) : profiles.isError ? (
           <p className="py-6 text-sm text-destructive">
-            Failed to load profiles.
+            {t("profiles.load_error")}
           </p>
         ) : profiles.data && profiles.data.length === 0 ? (
           <p className="py-6 text-sm text-muted-foreground">
-            No profiles yet. Pair a processor first.
+            {t("profiles.empty")}
           </p>
         ) : (
           <ul className="flex flex-col gap-2 py-2">
@@ -88,7 +88,7 @@ export function ProfilePickerDialog({
                   </span>
                   {!p.has_certs && (
                     <span className="rounded bg-destructive/15 px-2 py-0.5 text-[10px] uppercase text-destructive">
-                      no certs
+                      {t("profiles.no_certs")}
                     </span>
                   )}
                 </Button>

@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppStore } from "@/stores/app-store";
 import { cn } from "@/lib/utils";
 import type { Area, Device } from "@/lib/types";
+import { t } from "@/i18n";
 
 interface AreaTreeProps {
   areas: Area[];
@@ -71,7 +72,7 @@ export function AreaTree({ areas, devicesByArea }: AreaTreeProps) {
           )}
         >
           <Home className="size-4 shrink-0 text-muted-foreground" />
-          <span className="flex-1 font-medium">All areas</span>
+          <span className="flex-1 font-medium">{t("inventory.all_areas")}</span>
         </button>
         {nodes.map(({ area, depth, deviceCount }) => {
           const active = selected === area.href;
@@ -95,7 +96,7 @@ export function AreaTree({ areas, devicesByArea }: AreaTreeProps) {
                 )}
               />
               <span className="flex-1 truncate">
-                {area.Name ?? "(unnamed)"}
+                {area.Name ?? t("inventory.unnamed")}
               </span>
               {deviceCount > 0 && (
                 <span

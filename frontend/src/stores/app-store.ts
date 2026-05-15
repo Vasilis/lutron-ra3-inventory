@@ -14,6 +14,14 @@ interface AppState {
   theme: Theme;
   setTheme: (theme: Theme) => void;
 
+  /** Mirror of ``config.active_profile_serial`` on the backend. */
+  activeProfileSerial: string | null;
+  setActiveProfileSerial: (serial: string | null) => void;
+
+  /** True while an extraction's progress toast is on-screen. */
+  isExtracting: boolean;
+  setIsExtracting: (running: boolean) => void;
+
   selectedAreaHref: string | null;
   setSelectedAreaHref: (href: string | null) => void;
 
@@ -27,6 +35,12 @@ export const useAppStore = create<AppState>()(
       theme: "dark",
       setTheme: (theme) => set({ theme }),
 
+      activeProfileSerial: null,
+      setActiveProfileSerial: (serial) => set({ activeProfileSerial: serial }),
+
+      isExtracting: false,
+      setIsExtracting: (running) => set({ isExtracting: running }),
+
       selectedAreaHref: null,
       setSelectedAreaHref: (href) =>
         set({ selectedAreaHref: href, selectedDeviceHref: null }),
@@ -36,6 +50,8 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "ra3-app-state",
+      // Only theme persists; pairing state lives on the backend and the
+      // extracting flag is transient.
       partialize: (state) => ({ theme: state.theme }),
     },
   ),

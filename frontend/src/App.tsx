@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { InventoryBrowser } from "@/features/inventory/InventoryBrowser";
 import { PairingDialog } from "@/features/pairing/PairingDialog";
 import { ProfilePickerDialog } from "@/features/profiles/ProfilePickerDialog";
 import { WelcomeScreen } from "@/features/welcome/WelcomeScreen";
+import { useAppStore } from "@/stores/app-store";
 import { t } from "@/i18n";
 import { ApiError, api } from "@/lib/api";
 
@@ -26,19 +27,41 @@ import { ApiError, api } from "@/lib/api";
  *   - paired / picked profile → three-pane inventory browser
  */
 export function App() {
+  const qc = useQueryClient();
   const [pairingOpen, setPairingOpen] = useState(false);
   const [profilePickerOpen, setProfilePickerOpen] = useState(false);
-  const [activeProfileSerial, setActiveProfileSerial] = useState<string | null>(
-    null,
-  );
   const [extractTrigger, setExtractTrigger] = useState(0);
-  const [isExtracting, setIsExtracting] = useState(false);
+
+  // Pairing state + extraction-in-flight live in the Zustand store so the
+  // top-bar BackendStatus pill can read them without prop drilling.
+  const activeProfileSerial = useAppStore((s) => s.activeProfileSerial);
+  const setActiveProfileSerial = useAppStore((s) => s.setActiveProfileSerial);
+  const isExtracting = useAppStore((s) => s.isExtracting);
+  const setIsExtracting = useAppStore((s) => s.setIsExtracting);
 
   const profilesQuery = useQuery({
     queryKey: ["profiles"],
     queryFn: () => api.listProfiles(),
     retry: false,
   });
+
+  // Auto-activate the only saved profile if nothing's active yet (most
+  // homes have exactly one processor).
+  useEffect(() => {
+    if (activeProfileSerial) return;
+    const profiles = profilesQuery.data;
+    if (!profiles || profiles.length !== 1) return;
+    const serial = profiles[0].serial;
+    let cancelled = false;
+    void api.activateProfile(serial).then(() => {
+      if (cancelled) return;
+      setActiveProfileSerial(serial);
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [profilesQuery.data, activeProfileSerial, setActiveProfileSerial, qc]);
 
   if (profilesQuery.isPending) {
     return (

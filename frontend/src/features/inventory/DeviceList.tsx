@@ -43,12 +43,18 @@ export function DeviceList({
             {t("nav.devices")}
           </div>
           <div className="text-sm">
-            {devices.length} of {deviceCount} devices · {zoneCount} zones
+            {t("inventory.visible_counts", {
+              visible: devices.length,
+              devices: deviceCount,
+              zones: zoneCount,
+            })}
           </div>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">
-            Snapshot {new Date(extractedAt).toLocaleString()}
+            {t("inventory.snapshot_at", {
+              timestamp: new Date(extractedAt).toLocaleString(),
+            })}
           </span>
           <Button
             size="sm"
@@ -64,7 +70,7 @@ export function DeviceList({
             ) : (
               <>
                 <RefreshCw className="size-3.5" />
-                Refresh
+                {t("inventory.refresh")}
               </>
             )}
           </Button>
@@ -75,7 +81,7 @@ export function DeviceList({
         <ul className="flex flex-col divide-y divide-border/60">
           {devices.length === 0 ? (
             <li className="p-12 text-center text-sm text-muted-foreground">
-              No devices in this area.
+              {t("inventory.empty_area")}
             </li>
           ) : (
             devices.map((d) => {

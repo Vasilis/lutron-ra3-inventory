@@ -103,7 +103,7 @@ export function PairingDialog({
           if (subscriptionRef.current) {
             setStatus({
               kind: "error",
-              message: "Lost connection to the pairing stream.",
+              message: t("pair.stream_lost"),
             });
             subscriptionRef.current?.close();
             subscriptionRef.current = null;
@@ -131,10 +131,7 @@ export function PairingDialog({
             <Zap className="size-4 text-primary" />
             {t("welcome.pair")}
           </DialogTitle>
-          <DialogDescription>
-            Connect to your RadioRA 3 processor. You'll be prompted to press the
-            small pairing button on the processor during this flow.
-          </DialogDescription>
+          <DialogDescription>{t("pair.description")}</DialogDescription>
         </DialogHeader>
 
         {(status.kind === "form" || status.kind === "error") && (
@@ -188,8 +185,8 @@ export function PairingDialog({
                   <>
                     <Loader2 className="size-4 animate-spin" />
                     {status.kind === "ready"
-                      ? "Waiting for button press…"
-                      : "Pairing…"}
+                      ? t("pair.waiting")
+                      : t("pair.running")}
                   </>
                 ) : status.kind === "error" ? (
                   t("common.retry")
@@ -209,7 +206,7 @@ function ProgressView({ status }: { status: Status }) {
   if (status.kind === "starting") {
     return (
       <InfoLine icon={<Loader2 className="size-4 animate-spin" />}>
-        Reaching the processor…
+        {t("pair.reaching")}
       </InfoLine>
     );
   }
@@ -218,7 +215,7 @@ function ProgressView({ status }: { status: Status }) {
       <div className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-primary/10 p-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-primary">
           <Zap className="size-4" />
-          Press the pairing button now
+          {t("pair.press_now")}
         </div>
         <p className="text-sm text-foreground/80">{t("pair.press_button")}</p>
       </div>
@@ -227,7 +224,7 @@ function ProgressView({ status }: { status: Status }) {
   if (status.kind === "discovering") {
     return (
       <InfoLine icon={<Loader2 className="size-4 animate-spin" />}>
-        {status.detail ?? "Reading processor info…"}
+        {status.detail ?? t("pair.reading_info")}
       </InfoLine>
     );
   }

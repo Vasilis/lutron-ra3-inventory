@@ -60,7 +60,7 @@ export function InventoryBrowser({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="size-5 animate-spin" />
-        Loading inventory…
+        {t("inventory.loading")}
       </div>
     );
   }
@@ -78,14 +78,14 @@ export function InventoryBrowser({
           )}
         </div>
         <h2 className="text-lg font-semibold">
-          {is404 ? "No snapshot yet" : "Couldn't load inventory"}
+          {is404 ? t("inventory.no_snapshot_title") : t("inventory.load_error")}
         </h2>
         <p className="max-w-md text-sm text-muted-foreground">
           {is404
-            ? "Run an extraction to pull the current state from your processor. It takes about 5–10 seconds."
+            ? t("inventory.no_snapshot_body")
             : err instanceof Error
               ? err.message
-              : "Unknown error."}
+              : t("inventory.unknown_error")}
         </p>
         <Button onClick={onExtract} disabled={isExtracting} className="mt-2">
           {isExtracting ? (

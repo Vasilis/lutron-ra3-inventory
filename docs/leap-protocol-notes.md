@@ -1,13 +1,13 @@
-# LEAP protocol notes — RadioRA 3 (verified)
+# LEAP protocol notes — RadioRA 3
 
-These are the LEAP request/response shapes this app actually issues and parses, validated against a live RA 3 processor. The single most important thing to know is that **the surface area changes meaningfully across processor firmware versions**, so test against the firmware you're targeting.
+These notes describe request/response shapes handled by the extractor and observations from previous compatibility testing. **The surface area changes across processor firmware versions**; verify behavior on the firmware you target. These observations are not a vendor guarantee or a current-device acceptance test.
 
 ## Connection
 
 - **Pairing port:** TCP 8083, TLS with the Lutron LAP CA bundled into every Caseta/RA3 device and the official Lutron app. On RA 3 the handshake falls back to the Lutron root CA on first verification error (auto-detected).
 - **Production LEAP port:** TCP 8081, TLS, mutual auth.
-- **Hostname verification is disabled** (`server_hostname=""`). The processor's leaf cert uses a serial-derived CN, not a DNS name. Identity comes from the pinned CA cert returned by pairing.
-- **Only one client at a time.** TLS handshake fails with `ConnectionRefusedError` if Home Assistant, HomeBridge, or another LEAP client is already attached. Our `AlreadyConnectedError` surfaces this with a useful message.
+- The transport passes an empty `server_hostname` and requires certificate-chain verification. Pairing may fall back to a vendor-wide Lutron root CA; that is not a unique processor certificate pin. Review trust and processor identity binding before reusing this transport in another application.
+- Connection refusal has been observed while another integration was attached. The app surfaces an `AlreadyConnectedError`; this is an observed compatibility limitation, not a universal LEAP single-client guarantee.
 
 ## Wire format
 
@@ -32,7 +32,7 @@ The vendored `LeapProtocol` (from pylutron-caseta) handles dispatch.
 
 ## Firmware drift
 
-The user's original brief was accurate for older firmware. The processor we validated against runs **26.03.12f000** and exhibits real API changes:
+Previous compatibility testing on the 26.x firmware family showed these differences from older response shapes:
 
 1. **Bulk endpoints disappear.** Bare `/zone`, `/button`, `/buttongroup`, `/led`, `/areascene`, `/virtualbutton` all return `400 BadRequest: "This request is not supported"`. Discovery has to walk references from `/device?where=IsThisDevice:false` instead:
    - Zones: union of every device's `LocalZones[].href`, fetched individually as `/zone/{id}`.
@@ -50,25 +50,13 @@ The user's original brief was accurate for older firmware. The processor we vali
 
    Our preset href collector walks any PM dict tree looking for `href` keys starting with `/preset/`, so it stays robust against future schema additions.
 
-## Known limitations on firmware 26.03.12f000
+## Observed compatibility limitations
 
 - **Preset assignment data is not exposed.** `/preset/{id}` returns only `{href, Parent}` — every `*Assignments` array is empty, no zone-or-level data. Neither does any sub-URL we've probed (`/preset/{id}/dimmedlevelassignment` returns 204 No Content). The "press button N → dim zone X to 80%" mapping is reachable through the Designer file but not over LEAP on this firmware. We capture the PM type (toggle / single-action / raise / lower) and the engraving text, which still answers "what does this button do?" at a glance.
 - **`/areascene`, `/virtualbutton`, `/system/away/1/status` return "not supported".** Until we find their replacements, M1's snapshot will show empty counts for these.
 
-If you have a different RA 3 firmware that DOES expose preset assignments, please open an issue — including the firmware version, the `/preset/{id}` response body, and (if possible) a sanitized `lutron_raw.json`. Comparing against a known-good fixture will let us add a back-compat shim.
+If you have a different RA 3 firmware that DOES expose preset assignments, please open an issue with the firmware family and a minimal synthetic or manually reviewed response shape. Do not post raw household exports, credentials, private addresses, serials, engravings, or device/room names. A minimal fixture can help us add a compatibility shim.
 
-## Live validation on the maintainer's home
+## Public examples
 
-Last full run against `192.168.1.184` (firmware 26.03.12f000):
-
-| Category | Count |
-|---|---:|
-| Areas | 11 |
-| Devices (excl. processor) | 50 |
-| Zones | 40 |
-| Buttons | 110 |
-| ProgrammingModels | 88 |
-| Presets (stub bodies only) | 141 |
-| Duration | 7.3 s |
-
-Sanitized snapshot from this run lives at `examples/sanitized-snapshot.json` — it's what the M1 frontend tests will render against, and what fresh contributors can diff their own setups against.
+`examples/sanitized-snapshot.json` and its generated Markdown are deliberately synthetic fixtures. Their topology, identifiers, names, timestamps, and versions do not describe an installed system. Use them to explore the app and exports, not as evidence that a particular processor or firmware supports these requests.

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Sanitize a ProcessorInventory snapshot for safe public sharing.
+"""Redact selected fields in a ProcessorInventory snapshot.
 
 Adapted from ``docs/legacy/sanitize_inventory.py`` (raw-LEAP mode) to operate
-on the new app's snapshot schema. Redacts:
+on the new app's snapshot schema. This is not an anonymity guarantee: topology,
+zone labels, engravings, timestamps, versions, and raw/nested fields may still
+identify an installation. Review output privately before sharing. Redacts:
 
 - ``host`` → ``"192.0.2.1"`` (TEST-NET-1 range)
 - ``processor.SerialNumber`` and all device ``SerialNumber``s → ``null``

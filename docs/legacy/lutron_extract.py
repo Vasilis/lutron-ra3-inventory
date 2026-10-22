@@ -16,10 +16,10 @@ Usage:
   python3 -m venv .venv
   source .venv/bin/activate
   pip install 'pylutron-caseta>=0.28.0'
-  python lutron_extract.py --host 192.168.1.184
+  python lutron_extract.py --host 192.0.2.10
 
 Optional:
-  --host         Processor IP (default: 192.168.1.184)
+  --host         Processor IP (default: 192.0.2.10)
   --certs-dir    Where to store/load cert files (default: ./lutron_certs)
   --out-dir      Where to write the report files (default: . )
   --force-pair   Re-run the pairing flow even if cert files exist
@@ -347,8 +347,8 @@ async def amain(args: argparse.Namespace) -> int:
             print(f"\nPAIRING FAILED: {e!r}", file=sys.stderr)
             print(
                 "\nTroubleshooting:\n"
-                "  - Confirm you can reach the processor:  ping 192.168.1.184\n"
-                "  - Confirm port 8083 is reachable:       nc -vz 192.168.1.184 8083\n"
+                "  - Confirm you can reach the processor:  ping 192.0.2.10\n"
+                "  - Confirm port 8083 is reachable:       nc -vz 192.0.2.10 8083\n"
                 "  - Make sure no other client is mid-pairing.\n"
                 "  - Press the processor's physical button when prompted.",
                 file=sys.stderr,
@@ -388,7 +388,7 @@ async def amain(args: argparse.Namespace) -> int:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Extract a Lutron RA3 inventory over LEAP.")
-    p.add_argument("--host", default="192.168.1.184", help="Processor IP/hostname")
+    p.add_argument("--host", default="192.0.2.10", help="Processor IP/hostname")
     p.add_argument("--certs-dir", default="./lutron_certs",
                    help="Where to read/write pairing certificates")
     p.add_argument("--out-dir", default=".",

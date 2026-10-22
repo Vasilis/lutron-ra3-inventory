@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "ra3-inventory"
 dynamic = ["version"]
 description = "Browse and export a Lutron RadioRA 3 inventory over LEAP — areas, devices, zones, keypads, shades, firmware, full button programming."
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 keywords = ["lutron", "radiora3", "homeworks", "leap", "smart-home", "lighting"]

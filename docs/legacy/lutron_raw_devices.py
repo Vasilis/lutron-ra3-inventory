@@ -142,7 +142,7 @@ async def amain(args) -> int:
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--host", default="192.168.1.184")
+    p.add_argument("--host", default="192.0.2.10")
     p.add_argument("--certs-dir", default="./lutron_certs")
     p.add_argument("--out-dir", default=".")
     args = p.parse_args()

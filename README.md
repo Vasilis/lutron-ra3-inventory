@@ -49,7 +49,7 @@ See [`docs/leap-protocol-notes.md`](docs/leap-protocol-notes.md) for the verifie
 backend/         FastAPI + LEAP extractor + PyWebView entry
 frontend/        React 18 + Vite UI
 docs/            protocol notes + legacy scripts
-examples/        sanitized sample snapshot (no real serials/MACs)
+examples/        fully synthetic sample snapshot and rendered inventory
 scripts/         live-validation + snapshot-sanitizing helpers
 .github/         CI workflows + issue/PR templates
 ```
@@ -96,13 +96,13 @@ encrypted on-disk fallback instead of silently writing plaintext PEMs.
 
 If you already have pairing certs from another tool (e.g., the standalone `lutron_raw_extract.py` script this project grew out of), drop them into `~/Library/Application Support/RA3Inventory/profiles/<serial>/certs/` — the app will pick them up.
 
-Only **one** LEAP client can be connected to a processor at a time. If you also run Home Assistant or HomeBridge with a LEAP integration, close it before pairing or extracting.
+If pairing or extraction is refused while another LEAP integration is attached, stop that integration and retry. Single-client behavior has been observed during compatibility testing; it is not asserted for every processor or firmware.
 
 ## Security
 
 - Private keys are stored in the macOS Keychain by default; when Keychain is unavailable, the backend requires a passphrase for the Fernet + scrypt encrypted on-disk fallback.
-- LEAP traffic is TLS, but the processor's CA is self-signed by Lutron — that's why we pin the bridge cert alongside our client cert.
-- Snapshots may contain device serials, MAC addresses, and network info. The export dialog includes a **Share-safe** preset, and the API also supports `?sanitized=true`; use one of those before sharing a snapshot publicly.
+- LEAP uses TLS with certificate-chain verification. Pairing can trust a vendor-wide Lutron CA; this is not a unique processor certificate pin. Review device identity binding before reusing the transport.
+- Snapshots may contain device serials, MAC addresses, and network info. The export dialog includes a **Share-safe** preset, and the API also supports `?sanitized=true`; these redact selected fields but do not guarantee anonymity. Review topology, room/zone names, button engravings, timestamps, versions, and nested/raw data manually before sharing. The committed examples are fully synthetic, not exports from an installed system.
 
 ## License
 

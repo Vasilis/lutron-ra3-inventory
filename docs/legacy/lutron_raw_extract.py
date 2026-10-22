@@ -597,7 +597,7 @@ async def amain(args: argparse.Namespace) -> int:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Raw LEAP extractor for Lutron RA3/HWQS")
-    p.add_argument("--host", default="192.168.1.184")
+    p.add_argument("--host", default="192.0.2.10")
     p.add_argument("--certs-dir", default="./lutron_certs",
                    help="Reuses the certs created by lutron_extract.py")
     p.add_argument("--out-dir", default=".",

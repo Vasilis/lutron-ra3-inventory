@@ -19,7 +19,7 @@ pip install 'pylutron-caseta>=0.28.0'
 ## Run
 
 ```bash
-python lutron_extract.py --host 192.168.1.184
+python lutron_extract.py --host 192.0.2.10
 ```
 
 The first run will prompt you to press the small black button on the front
@@ -27,7 +27,7 @@ of the RA3 processor. Do it within ~30 seconds. Pairing cert files are
 cached in `./lutron_certs/`, so subsequent runs skip pairing.
 
 ### Options
-- `--host 192.168.1.184` — processor IP (default shown)
+- `--host 192.0.2.10` — processor IP (default shown)
 - `--certs-dir ./lutron_certs` — where to keep the three PEM files
 - `--out-dir .` — where to write the `.md` and `.json`
 - `--force-pair` — re-pair even if certs exist (use after factory reset or
@@ -67,7 +67,7 @@ cached in `./lutron_certs/`, so subsequent runs skip pairing.
 
 | Symptom | Fix |
 |---|---|
-| `Connection refused` during pairing | Check the IP is reachable: `nc -vz 192.168.1.184 8083` |
+| `Connection refused` during pairing | Check the IP is reachable: `nc -vz 192.0.2.10 8083` |
 | Pairing hangs at "Press the button" | You have ~30s after the prompt; re-run if you missed it |
 | `SSLCertVerificationError` on connect | Certs went stale — re-run with `--force-pair` |
 | `Address already in use` | Another LEAP client is connected. Close it (HA, HomeBridge plugin, etc.) and retry |

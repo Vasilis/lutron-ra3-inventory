@@ -8,12 +8,15 @@ and (optionally) saves a sanitized copy as the repo's example fixture.
 Usage::
 
     python scripts/validate-live.py \\
-        --host 192.168.1.184 \\
+        --host 192.0.2.10 \\
         --certs-dir "/path/to/lutron_certs" \\
-        --save-example examples/sanitized-snapshot.json
+        --save-example /private/tmp/reviewed-inventory.json
 
 The script is intentionally not wrapped as a pytest test — it requires a
-live processor and physical access to the LAN, so it doesn't belong in CI.
+live processor and physical access to the LAN, so it does not belong in CI.
+The documentation address above is a placeholder: supply your own approved target.
+Sanitization does not anonymize household topology or labels. Keep output private
+and review it manually; do not overwrite the committed synthetic examples.
 """
 
 from __future__ import annotations
